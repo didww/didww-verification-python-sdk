@@ -1,0 +1,178 @@
+{
+  "capturedAt": "2026-09-07",
+  "source": "Captured from the verification service's own error registry and route table.",
+  "baseUrls": {
+    "production": "https://verification.didww.com",
+    "sandbox": "https://verification-sandbox.didww.com"
+  },
+  "deliveryMethods": [
+    "sms",
+    "callout"
+  ],
+  "deliveryMethodsNote": "The set a client may request. A read can return a value outside it, so decode delivery_method as an open string rather than a closed enum.",
+  "statuses": [
+    "pending",
+    "verified",
+    "failed",
+    "expired",
+    "denied"
+  ],
+  "envelopeErrorCodes": [
+    "destination_blank",
+    "destination_invalid",
+    "delivery_method_blank",
+    "delivery_method_inclusion",
+    "delivery_method_invalid",
+    "languages_invalid",
+    "app_hash_invalid",
+    "code_blank",
+    "destination_not_supported_for_channel",
+    "code_invalid",
+    "already_verified",
+    "not_ready_to_report",
+    "parameter_missing",
+    "not_found",
+    "unauthorized",
+    "balance_insufficient",
+    "validation_failed",
+    "internal_error"
+  ],
+  "verificationErrorCodes": [
+    "dispatch_failed",
+    "expired",
+    "too_many_attempts",
+    "stale_dispatch",
+    "application_deleted",
+    "superseded",
+    "denied_missing_callback_url",
+    "denied_by_callback",
+    "denied_invalid_callback_response"
+  ],
+  "routes": [
+    {
+      "name": "startVerification",
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/v1/verifications",
+      "successStatus": 201,
+      "errorStatuses": [
+        400,
+        401,
+        402,
+        422,
+        500
+      ]
+    },
+    {
+      "name": "getVerification",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/v1/verifications/{id}",
+      "successStatus": 200,
+      "errorStatuses": [
+        401,
+        404,
+        500
+      ]
+    },
+    {
+      "name": "reportVerification",
+      "methods": [
+        "PUT",
+        "PATCH"
+      ],
+      "path": "/api/v1/verifications/{id}",
+      "successStatus": 200,
+      "errorStatuses": [
+        400,
+        401,
+        404,
+        422,
+        500
+      ],
+      "notes": "PUT and PATCH are the same operation, not two."
+    },
+    {
+      "name": "getVerificationByNumber",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/v1/verifications/by_number/{number}",
+      "successStatus": 200,
+      "errorStatuses": [
+        401,
+        404,
+        500
+      ]
+    },
+    {
+      "name": "reportVerificationByNumber",
+      "methods": [
+        "PUT",
+        "PATCH"
+      ],
+      "path": "/api/v1/verifications/by_number/{number}",
+      "successStatus": 200,
+      "errorStatuses": [
+        400,
+        401,
+        404,
+        422,
+        500
+      ]
+    }
+  ],
+  "authSchemes": {
+    "public": {
+      "header": "Authorization: Application <key>"
+    },
+    "basic": {
+      "header": "Authorization: Basic base64(key:secret)"
+    },
+    "application": {
+      "header": "Authorization: Application <key>:<signature>, plus x-timestamp"
+    },
+    "ranking": [
+      "public",
+      "basic",
+      "application"
+    ]
+  },
+  "signing": {
+    "algorithm": "HMAC-SHA256",
+    "signatureEncoding": "standard base64, padded",
+    "keyDerivation": "base64 decode of the application secret; the raw bytes are the key",
+    "stringToSign": [
+      "<HTTP-METHOD>",
+      "<CONTENT-MD5>",
+      "<CONTENT-TYPE>",
+      "x-timestamp:<TIMESTAMP>",
+      "<PATH>"
+    ],
+    "joinedWith": "\n",
+    "contentMd5EmptyWhen": "the body is absent, empty, or whitespace only",
+    "path": "the request-target path, undecoded, query excluded",
+    "bodylessRequestSendsNoContentTypeHeader": true,
+    "replayWindowSeconds": 300
+  },
+  "callback": {
+    "signedPath": "the path of the REGISTERED callback URL, query excluded",
+    "bareOriginSignsEmptyString": true,
+    "expectedResponse": {
+      "status": "2xx",
+      "body": {
+        "action": "allow | deny"
+      }
+    },
+    "retries": 0
+  },
+  "constraints": {
+    "destinationNormalization": "every non-digit is stripped, the leading '+' included",
+    "generatedCodeLength": 6,
+    "codePlaceholder": "{{CODE}}",
+    "languageFallback": "en-US",
+    "reportAttemptsMax": 3
+  }
+}

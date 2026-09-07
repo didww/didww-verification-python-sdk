@@ -1,0 +1,10 @@
+graft tests
+graft contract
+prune internal
+
+# Compiled bytecode embeds the absolute path of the machine that built it, so a
+# stray .pyc publishes the maintainer's home directory. `graft tests` would
+# otherwise sweep tests/__pycache__ into the sdist.
+global-exclude *.py[cod]
+global-exclude .DS_Store
+prune **/__pycache__

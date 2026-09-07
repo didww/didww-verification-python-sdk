@@ -1,0 +1,101 @@
+name: CI
+
+# GitHub only. Elsewhere, run the same commands locally.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+      - run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format
+        run: ruff format --check .
+
+      - name: Types (mypy)
+        run: mypy
+
+      # Both, deliberately: mypy treats `Literal[...] | str` as bare `str`, so the
+      # assertions in tests/typing only mean anything under pyright.
+      - name: Types (pyright)
+        run: pyright
+
+  test:
+    name: Test (Python ${{ matrix.python }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # Floor and ceiling on a pull request, every version on main and on dispatch.
+        # 3.10 is in both lists: it is the declared floor and the only leg where a
+        # `fromisoformat` regression is visible at all. Do not drop it.
+        #
+        # The two lists produce different job names, so requiring an intermediate leg
+        # as a status check would block every pull request. Require 3.10 and 3.14.
+        python: ${{ fromJSON(github.event_name == 'pull_request' && '["3.10","3.14"]' || '["3.10","3.11","3.12","3.13","3.14"]') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: pip install -e ".[dev]"
+
+      # No --cov: nothing consumes the report. `pytest --cov=didww_verification`
+      # still works locally, and pytest-cov stays a dev dependency for that.
+      - name: Tests
+        run: pytest -v
+
+  package:
+    name: Package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+      - run: pip install -e ".[dev]"
+
+      - name: Build
+        run: python -m build
+
+      - name: Metadata
+        run: twine check dist/*
+
+      # A packaging break is otherwise invisible until publish, which cannot be undone.
+      - name: Install the wheel into a clean environment and import it
+        run: |
+          python -m venv /tmp/fresh
+          /tmp/fresh/bin/pip install --quiet dist/*.whl
+          /tmp/fresh/bin/python -c "
+          import pathlib, didww_verification as d
+          assert d.__version__
+          marker = pathlib.Path(d.__file__).parent / 'py.typed'
+          assert marker.is_file(), 'py.typed missing: the package would ship untyped'
+          print('imported', d.__version__, 'with', len(d.API_ERROR_CODES), 'error codes')
+          "

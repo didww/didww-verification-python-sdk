@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Agent and editor scratch. Ignored here, not in a personal global config a clone
+# does not inherit.
+.omc/
+.claude/
+.idea/
+.vscode/
+.DS_Store
