@@ -8,6 +8,7 @@ client at all.
 - Python 3.10+
 - Fully typed, `py.typed` included
 - One runtime dependency (`httpx2`) plus `anyio`
+- [Verification API documentation](https://doc.didww.com/otp-verification/index.html)
 
 ## Installation
 
@@ -27,6 +28,7 @@ with VerificationClient(BasicAuth(key, secret)) as client:
     )
 
     # The code arrives by SMS; ask the user for it, then report it.
+    # A wrong code raises: see "Reporting a code".
     verification = client.report_verification(verification.id, delivery_method="sms", code="123456")
 
     print(verification.status)  # "verified", "failed", ...
@@ -68,7 +70,28 @@ set: one added after this release arrives as a plain string rather than raising,
 compare against `is_known_verification_status` before switching exhaustively.
 
 Only transport faults, non-2xx responses and unreadable bodies raise — see
-[Errors](#errors).
+[Errors](#errors). A wrong code is one of those non-2xx responses.
+
+## Reporting a code
+
+Each report consumes one of three attempts. While attempts remain, a wrong code is
+rejected with 422 and `code_invalid`, and the verification stays `pending`, so the user
+can try again. Once all three are used, the next report is answered with a normal 200
+whose status is `failed` and whose `error_code` is `too_many_attempts`.
+
+```python
+from didww_verification import DidwwValidationError
+
+try:
+    verification = client.report_verification(verification.id, delivery_method="sms", code=entered)
+except DidwwValidationError as exc:
+    if exc.has_code("code_invalid"):
+        ask_again()  # still pending
+    elif exc.has_code("not_ready_to_report"):
+        retry_shortly()  # the challenge is still being sent
+    else:
+        raise
+```
 
 ## Addressing a verification by phone number
 
@@ -279,7 +302,8 @@ A non-2xx whose body is not JSON still raises the status-mapped error with empty
 
 ## Retries
 
-Only reads are retried, on transport faults and 5xx, twice by default:
+Only reads are retried, on transport faults and 5xx — once by default, since `attempts`
+counts total tries:
 
 ```python
 from didww_verification import RetryPolicy
@@ -293,6 +317,18 @@ idempotency key: a repeated start supersedes the live verification and charges a
 and a repeated report consumes one of three attempts. Exceeding that limit is answered
 with a normal 200 whose status is `failed` — read the result rather than counting
 attempts yourself.
+
+## Logging
+
+The SDK itself logs nothing. Its HTTP client, httpx2, logs every request's method and
+URL at `INFO` on the `httpx2` logger, and for the `by_number` calls that URL contains
+the phone number. If your application logs at `INFO`, raise that logger:
+
+```python
+import logging
+
+logging.getLogger("httpx2").setLevel(logging.WARNING)
+```
 
 ## A channel this release does not model
 

@@ -8,7 +8,13 @@ from __future__ import annotations
 import os
 import sys
 
-from didww_verification import BasicAuth, Environment, SmsOptions, VerificationClient
+from didww_verification import (
+    BasicAuth,
+    DidwwValidationError,
+    Environment,
+    SmsOptions,
+    VerificationClient,
+)
 
 
 def main(destination: str) -> int:
@@ -27,7 +33,15 @@ def main(destination: str) -> int:
         code = input("code from the SMS: ").strip()
 
         # One attempt is consumed whatever the outcome, so never loop on this.
-        verification = client.report_verification(verification.id, delivery_method="sms", code=code)
+        try:
+            verification = client.report_verification(
+                verification.id, delivery_method="sms", code=code
+            )
+        except DidwwValidationError as exc:
+            if not exc.has_code("code_invalid"):
+                raise
+            print("wrong code; the verification is still pending")
+            return 1
 
     if verification.status == "verified":
         print("verified")

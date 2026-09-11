@@ -112,8 +112,9 @@ class AsyncVerificationClient:
     ) -> Verification:
         """Report the code the user entered.
 
-        Consumes one of a small number of attempts, so this is never retried. Exceeding
-        the limit is a normal 200 with status ``failed``, not an error.
+        Consumes one of a small number of attempts, so this is never retried. A wrong code
+        raises :class:`DidwwValidationError` with ``code_invalid``; once the attempts are used
+        up, the next report is a normal 200 with status ``failed``, not an error.
         """
         return await self._verify(
             rq.build_report(verification_id, delivery_method=delivery_method, code=code)

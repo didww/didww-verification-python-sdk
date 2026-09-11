@@ -13,3 +13,9 @@ do not log the objects you construct them from.
 
 `Verification.raw` is off by default. When enabled it retains the decoded payload, including
 the destination number, for as long as the object lives.
+
+## Phone numbers in logs
+
+This SDK does not log. Its HTTP client, httpx2, logs every request's method and URL at `INFO`
+on the `httpx2` logger, and a `by_number` URL contains the destination number. If your
+application logs at `INFO`, raise that logger to `WARNING`.

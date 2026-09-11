@@ -9,7 +9,12 @@ import asyncio
 import os
 import sys
 
-from didww_verification import AsyncVerificationClient, BasicAuth, Environment
+from didww_verification import (
+    AsyncVerificationClient,
+    BasicAuth,
+    DidwwValidationError,
+    Environment,
+)
 
 
 async def main(destination: str) -> int:
@@ -22,9 +27,15 @@ async def main(destination: str) -> int:
         print(f"started {verification.id}")
 
         code = await asyncio.to_thread(input, "code from the SMS: ")
-        verification = await client.report_verification(
-            verification.id, delivery_method="sms", code=code.strip()
-        )
+        try:
+            verification = await client.report_verification(
+                verification.id, delivery_method="sms", code=code.strip()
+            )
+        except DidwwValidationError as exc:
+            if not exc.has_code("code_invalid"):
+                raise
+            print("wrong code; the verification is still pending")
+            return 1
 
     print(verification.status)
     return 0 if verification.status == "verified" else 1

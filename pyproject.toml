@@ -35,6 +35,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/didww/didww-verification-python-sdk"
+Documentation = "https://doc.didww.com/otp-verification/index.html"
 Repository = "https://github.com/didww/didww-verification-python-sdk"
 Issues = "https://github.com/didww/didww-verification-python-sdk/issues"
 Changelog = "https://github.com/didww/didww-verification-python-sdk/blob/main/CHANGELOG.md"
