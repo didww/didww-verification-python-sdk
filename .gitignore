@@ -19,3 +19,5 @@ htmlcov/
 .idea/
 .vscode/
 .DS_Store
+
+uv.lock

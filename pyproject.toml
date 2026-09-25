@@ -1,21 +1,21 @@
 [build-system]
 # setuptools, not hatchling: hatchling's default sdist ships every VCS-tracked file.
-requires = ["setuptools>=68.0"]
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "didww-verification"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Python SDK for the DIDWW Verification API"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "DIDWW", email = "support@didww.com" }]
 keywords = ["didww", "otp", "verification", "sms", "2fa", "telephony", "api", "sdk"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -50,13 +50,16 @@ dev = [
     "ruff>=0.6",
     "typing_extensions>=4.12",
     "build>=1.2",
-    "twine>=5.0",
+    "twine>=6.1",
     # So the optional adapters are actually checked. Neither is a runtime dependency.
     "starlette>=0.37",
     "django>=4.2",
     # Django ships no inline types.
     "django-stubs>=5.0",
 ]
+
+[tool.setuptools.dynamic]
+version = { attr = "didww_verification._version.VERSION" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
