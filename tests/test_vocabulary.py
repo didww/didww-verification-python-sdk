@@ -31,9 +31,9 @@ class TestTupleAndLiteralAgree:
 
 
 class TestShape:
-    def test_the_registry_has_27_slugs(self) -> None:
-        """18 envelope plus 9 outcome, as the service defines them."""
-        assert len(v.API_ERROR_CODES) == 27
+    def test_the_registry_has_28_slugs(self) -> None:
+        """19 envelope plus 9 outcome, as the service defines them."""
+        assert len(v.API_ERROR_CODES) == 28
         assert len(v.VERIFICATION_ERROR_CODES) == 9
 
     def test_every_outcome_code_is_in_the_combined_set(self) -> None:

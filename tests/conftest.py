@@ -32,7 +32,8 @@ def verification_payload(**overrides: Any) -> dict[str, Any]:
         "sms": {
             "template": "Your code is {{CODE}}",
             "language": "en-US",
-            "interception_timeout": 120,
+            "interception_timeout": 300,
+            "code_length": 6,
         },
     }
     data.update(overrides)

@@ -15,6 +15,7 @@ __all__ = [
     "DidwwConfigurationError",
     "DidwwDecodingError",
     "DidwwNotFoundError",
+    "DidwwRateLimitedError",
     "DidwwServerError",
     "DidwwTransportError",
     "DidwwUnauthorizedError",
@@ -113,6 +114,27 @@ class DidwwNotFoundError(DidwwApiError):
 
 class DidwwValidationError(DidwwApiError):
     """400 or 422."""
+
+
+class DidwwRateLimitedError(DidwwApiError):
+    """429: a start too soon after a non-denied one for the same destination.
+
+    Never retried automatically. ``retry_after`` is the wait in whole seconds from
+    ``Retry-After``, or ``None`` when the header was absent or unparsable -- wait
+    that long, then start again yourself.
+    """
+
+    def __init__(
+        self,
+        message: str | None = None,
+        *,
+        status: int,
+        errors: tuple[ErrorItem, ...] = (),
+        body: str | None = None,
+        retry_after: int | None = None,
+    ) -> None:
+        super().__init__(message, status=status, errors=errors, body=body)
+        self.retry_after = retry_after
 
 
 class DidwwServerError(DidwwApiError):
