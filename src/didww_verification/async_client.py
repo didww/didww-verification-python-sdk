@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 from types import TracebackType
 from typing import Any, TypeVar
@@ -47,19 +48,29 @@ class AsyncVerificationClient:
         base_url: str | None = None,
         timeout: float = 30.0,
         retry: RetryPolicy | None = None,
-        user_agent: str = DEFAULT_USER_AGENT,
+        user_agent: str | None = None,
         keep_raw_payload: bool = False,
         http_client: httpx2.AsyncClient | None = None,
     ) -> None:
         """
         :param base_url: an origin, overriding ``environment``. Must carry no path.
         :param retry: read-retry policy. Writes are never retried.
+        :param user_agent: deprecated and ignored. The SDK always sends
+            ``DEFAULT_USER_AGENT``; this parameter will be removed in the next major
+            version.
         :param keep_raw_payload: retain the decoded envelope on each Verification.
             Off by default; it keeps the destination in memory and is not covered by
             semantic versioning.
         :param http_client: bring your own client for proxies, TLS or connection
             limits. It is *not* closed by this client, since you own its lifetime.
         """
+        if user_agent is not None:
+            warnings.warn(
+                "user_agent is ignored; the SDK always sends its own User-Agent, and "
+                "this parameter will be removed in the next major version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         self._auth = auth
         self._base_url = validate_base_url(base_url or environment.value)
         self._retry = retry or RetryPolicy()
@@ -67,7 +78,7 @@ class AsyncVerificationClient:
         self._owns_client = http_client is None
         self._http = http_client or httpx2.AsyncClient(timeout=timeout)
         self._http.base_url = httpx2.URL(self._base_url)
-        self._http.headers["user-agent"] = user_agent
+        self._http.headers["user-agent"] = DEFAULT_USER_AGENT
 
     async def aclose(self) -> None:
         """Close the underlying connection pool, unless you supplied the client."""

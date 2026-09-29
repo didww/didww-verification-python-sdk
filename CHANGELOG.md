@@ -5,6 +5,14 @@ Notable changes to the DIDWW Verification SDK for Python.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Deprecated
+
+- **`user_agent`** on `VerificationClient` and `AsyncVerificationClient` is deprecated and
+  ignored. The SDK always sends its own `User-Agent`; passing this parameter now emits a
+  `DeprecationWarning` and will be removed in the next major version.
+
 ## [1.0.0] — 2026-09
 
 First release.
