@@ -25,6 +25,7 @@
     "delivery_method_invalid",
     "languages_invalid",
     "app_hash_invalid",
+    "custom_too_long",
     "code_blank",
     "destination_not_supported_for_channel",
     "code_invalid",

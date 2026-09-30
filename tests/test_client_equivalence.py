@@ -42,6 +42,10 @@ CALLS: list[tuple[str, dict[str, Any]]] = [
             "callout": CalloutOptions(languages=["de-DE"]),
         },
     ),
+    (
+        "start_verification",
+        {"destination": "+37112345678", "delivery_method": "sms", "custom": "order-42"},
+    ),
     ("get_verification", {"verification_id": "a+b/c"}),
     ("report_verification", {"verification_id": "abc", "delivery_method": "sms", "code": "123456"}),
     ("get_verification_by_number", {"number": "+371.123 456-78"}),

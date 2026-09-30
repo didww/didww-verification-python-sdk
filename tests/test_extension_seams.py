@@ -304,6 +304,23 @@ class TestChannelOptionsReachTheWire:
         """str is a Sequence. Coercing it would send ["a","b","c"]."""
         assert self._block("sms", SmsOptions(app_hash="abc"))["app_hash"] == "abc"
 
+    def test_custom_is_a_top_level_field(self) -> None:
+        spec = build_start(
+            destination="+37112345678",
+            delivery_method="sms",
+            sms=SmsOptions(languages=["en-US"]),
+            custom="order-42",
+        )
+        assert spec.body is not None
+        data = cast("dict[str, Any]", json.loads(spec.body))["data"]
+        assert data["custom"] == "order-42"
+        assert "custom" not in data["sms"]
+
+    def test_custom_is_omitted_when_unset(self) -> None:
+        spec = build_start(destination="+37112345678", delivery_method="sms")
+        assert spec.body is not None
+        assert "custom" not in cast("dict[str, Any]", json.loads(spec.body))["data"]
+
     def test_both_blocks_may_travel_together(self) -> None:
         spec = build_start(
             destination="+37112345678",

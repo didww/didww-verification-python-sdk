@@ -5,6 +5,15 @@ Notable changes to the DIDWW Verification SDK for Python.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — Unreleased
+
+### Added
+
+- **`custom` on `start_verification`** (sync and async). Free text of up to 4096
+  characters, delivered unchanged to your callback server as `data.custom`. It is not
+  returned in any response. A longer value is refused with the new `custom_too_long`
+  error code.
+
 ## [1.1.0] — 2026-10
 
 ### Added
