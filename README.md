@@ -151,6 +151,23 @@ verification.sms.code_length
 verification.callout.code_length
 ```
 
+## Passing data to your callback
+
+`custom` is a free-text string of up to 4096 characters, sent at the top level of the
+request rather than inside a channel block:
+
+```python
+client.start_verification(
+    destination="+37112345678",
+    delivery_method="sms",
+    custom="order-42",
+)
+```
+
+It reaches your callback server unchanged as `data.custom` (see below) and is not
+returned by any response. Longer values are refused with `custom_too_long`; an empty
+string is treated as unset.
+
 ## Environments
 
 ```python
@@ -213,6 +230,17 @@ differ. Two consequences:
   sides.
 - `https://example.com` and `https://example.com/` are different signatures. Do not
   normalise the trailing slash.
+
+The request body is the `verification_request` event. `data.custom` holds the value
+passed to `start_verification`; the key is absent when none was given.
+
+```python
+custom = payload["data"].get("custom")
+```
+
+**Treat `custom` as untrusted.** When the start request comes from a mobile app, the
+app controls it, so validate it against your own records instead of acting on it as
+given.
 
 Importing `didww_verification.callback` pulls in no HTTP client, so a service that
 only receives callbacks pays nothing for one.

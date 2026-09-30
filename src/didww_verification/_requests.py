@@ -78,18 +78,23 @@ def build_start(
     delivery_method: str,
     sms: SmsOptions | None = None,
     callout: CalloutOptions | None = None,
+    custom: str | None = None,
 ) -> RequestSpec:
     """``POST /api/v1/verifications``.
 
     Per-channel options travel in a block named after the channel; the service reads
     only the block matching ``delivery_method``, so sending both is harmless. It drops
     an option it does not recognise but rejects a malformed value for one it does.
+
+    ``custom`` is top-level, not per-channel, and omitted when ``None``.
     """
     data: dict[str, Any] = {"destination": destination, "delivery_method": delivery_method}
     if sms is not None:
         data["sms"] = _channel_block(sms)
     if callout is not None:
         data["callout"] = _channel_block(callout)
+    if custom is not None:
+        data["custom"] = custom
     return RequestSpec("POST", f"{API_PREFIX}/verifications", _encode(data))
 
 

@@ -90,14 +90,20 @@ class VerificationClient:
         delivery_method: KnownDeliveryMethod,
         sms: SmsOptions | None = None,
         callout: CalloutOptions | None = None,
+        custom: str | None = None,
     ) -> Verification:
-        """Start a verification. Never retried: a repeat supersedes and charges again."""
+        """Start a verification. Never retried: a repeat supersedes and charges again.
+
+        :param custom: free text, up to 4096 characters, passed unchanged to your callback
+            server as ``data.custom``. Not returned in any response.
+        """
         return self._verify(
             rq.build_start(
                 destination=destination,
                 delivery_method=delivery_method,
                 sms=sms,
                 callout=callout,
+                custom=custom,
             )
         )
 
