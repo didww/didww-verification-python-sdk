@@ -24,6 +24,7 @@
     "delivery_method_inclusion",
     "delivery_method_invalid",
     "languages_invalid",
+    "autofill_invalid",
     "app_hash_invalid",
     "code_blank",
     "destination_not_supported_for_channel",

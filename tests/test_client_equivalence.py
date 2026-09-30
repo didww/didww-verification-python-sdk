@@ -18,6 +18,7 @@ import pytest
 from didww_verification import (
     ApplicationAuth,
     AsyncVerificationClient,
+    Autofill,
     CalloutOptions,
     SmsOptions,
     VerificationClient,
@@ -31,7 +32,9 @@ CALLS: list[tuple[str, dict[str, Any]]] = [
         {
             "destination": "+371 123-456-78",
             "delivery_method": "sms",
-            "sms": SmsOptions(languages=["lv-LV", "en-US"], app_hash="abcdefghijk"),
+            "sms": SmsOptions(
+                languages=["lv-LV", "en-US"], autofill=Autofill.app_hash("abcdefghijk")
+            ),
         },
     ),
     (

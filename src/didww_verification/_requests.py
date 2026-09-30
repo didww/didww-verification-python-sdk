@@ -5,14 +5,14 @@ from __future__ import annotations
 import base64
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, fields
+from dataclasses import asdict, dataclass, fields
 from typing import Any, Literal, cast
 from urllib.parse import quote
 
 import httpx2
 
 from .auth import Auth, BasicAuth, PublicAuth
-from .models import CalloutOptions, SmsOptions
+from .models import Autofill, CalloutOptions, SmsOptions
 from .phone_number import digits_of
 from .signing import sign, string_to_sign
 
@@ -64,10 +64,12 @@ def _channel_block(options: SmsOptions | CalloutOptions) -> dict[str, Any]:
     block: dict[str, Any] = {}
     for field in fields(options):
         value: object = getattr(options, field.name)
-        if value is None:
+        if value is None or field.name == "app_hash":  # deprecated alias, sent as autofill
             continue
         if isinstance(value, Sequence) and not isinstance(value, str):
             value = list(cast("Sequence[object]", value))
+        if isinstance(value, Autofill):
+            value = {"type": value.type} if value.value is None else asdict(value)
         block[field.name] = value
     return block
 

@@ -129,6 +129,20 @@ client.start_verification(
 )
 ```
 
+SMS autofill is set with `autofill`: `Autofill.app_hash("<11-char hash>")` frames the
+message for the Android SMS Retriever, `Autofill.none()` sends no marker, and leaving
+it unset uses the application default. The verification echoes it back as
+`verification.sms.autofill`, only when a hash was stored.
+
+```python
+from didww_verification import Autofill
+
+SmsOptions(autofill=Autofill.app_hash("abcdefghijk"))
+```
+
+`SmsOptions(app_hash=...)` and `SmsInfo.app_hash` still work but are deprecated; the
+service no longer reads or returns the `app_hash` field.
+
 Languages are BCP 47 tags, tried in order, falling back to `en-US`. **Send the region
 subtag.** A bare primary subtag like `pl` passes validation and then silently falls
 back, because the catalogue is matched on the exact canonical tag.

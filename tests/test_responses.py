@@ -8,6 +8,7 @@ from decimal import Decimal
 import pytest
 
 from didww_verification import (
+    Autofill,
     DidwwApiError,
     DidwwBalanceInsufficientError,
     DidwwDecodingError,
@@ -35,6 +36,31 @@ class TestSuccess:
         assert v.sms is not None and v.sms.language == "en-US"
         assert v.callout is None
         assert not v.is_finished
+
+    def test_sms_autofill_is_decoded_and_app_hash_derived(self) -> None:
+        sms = {
+            **verification_payload()["sms"],
+            "autofill": {"type": "app_hash", "value": "abcdefghijk"},
+        }
+        v = decode_verification(ok(sms=sms))
+        assert v.sms is not None
+        assert v.sms.autofill == Autofill.app_hash("abcdefghijk")
+        assert v.sms.app_hash == "abcdefghijk"
+
+    def test_sms_autofill_is_absent_when_no_hash_was_stored(self) -> None:
+        v = decode_verification(ok())
+        assert v.sms is not None
+        assert v.sms.autofill is None
+        assert v.sms.app_hash is None
+
+    @pytest.mark.parametrize(
+        "autofill",
+        ["app_hash", {"value": "x"}, {"type": 1}, {"type": "app_hash", "value": 5}],
+    )
+    def test_sms_autofill_rejects_a_malformed_shape(self, autofill: object) -> None:
+        sms = {**verification_payload()["sms"], "autofill": autofill}
+        with pytest.raises(DidwwDecodingError):
+            decode_verification(ok(sms=sms))
 
     def test_fee_is_a_decimal_not_a_float(self) -> None:
         """The wire sends a decimal string; money must not round."""
