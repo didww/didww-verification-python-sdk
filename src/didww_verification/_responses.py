@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import TypeAlias, cast
@@ -14,6 +16,7 @@ from .errors import (
     DidwwBalanceInsufficientError,
     DidwwDecodingError,
     DidwwNotFoundError,
+    DidwwRateLimitedError,
     DidwwServerError,
     DidwwTransportError,
     DidwwUnauthorizedError,
@@ -42,6 +45,7 @@ class HttpOutcome:
 
     status: int
     body: bytes
+    headers: Mapping[str, str] = field(default_factory=dict[str, str])
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,9 +76,24 @@ def _error_class(status: int) -> type[DidwwApiError]:
         return DidwwNotFoundError
     if status in (400, 422):
         return DidwwValidationError
+    if status == 429:
+        return DidwwRateLimitedError
     if 500 <= status <= 599:
         return DidwwServerError
     return DidwwApiError
+
+
+def _retry_after(headers: Mapping[str, str]) -> int | None:
+    """``Retry-After`` as whole seconds, or ``None`` when absent or not plain digits.
+
+    The API always sends the delta-seconds form, never an HTTP-date. ``int()`` alone
+    would also accept a sign, underscores or a decimal point, none of which this
+    header legitimately carries.
+    """
+    value = headers.get("retry-after")
+    if value is None or not re.fullmatch(r"\d+", value.strip()):
+        return None
+    return int(value)
 
 
 def _parse_errors(body: bytes) -> tuple[ErrorItem, ...]:
@@ -122,6 +141,12 @@ def _required_str(value: object, field: str) -> str:
     raise DidwwDecodingError(f"{field} is missing or not a string: {value!r}")
 
 
+def _required_int(value: object, field: str) -> int:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    raise DidwwDecodingError(f"{field} is missing or not an integer: {value!r}")
+
+
 def _sms(block: object) -> SmsInfo | None:
     if block is None:
         return None
@@ -136,6 +161,7 @@ def _sms(block: object) -> SmsInfo | None:
         language=_optional_str(fields.get("language"), "sms.language"),
         interception_timeout=timeout,
         app_hash=_optional_str(fields.get("app_hash"), "sms.app_hash"),
+        code_length=_required_int(fields.get("code_length"), "sms.code_length"),
     )
 
 
@@ -145,7 +171,10 @@ def _callout(block: object) -> CalloutInfo | None:
     if not isinstance(block, dict):
         raise DidwwDecodingError(f"callout is not an object: {block!r}")
     fields = cast("dict[str, object]", block)
-    return CalloutInfo(language=_optional_str(fields.get("language"), "callout.language"))
+    return CalloutInfo(
+        language=_optional_str(fields.get("language"), "callout.language"),
+        code_length=_required_int(fields.get("code_length"), "callout.code_length"),
+    )
 
 
 def _optional_decimal(value: object, field: str) -> Decimal | None:
@@ -172,9 +201,17 @@ def _checked_body(outcome: Outcome) -> bytes:
         raise DidwwTransportError(str(outcome.cause)) from outcome.cause
 
     if not 200 <= outcome.status < 300:
-        raise _error_class(outcome.status)(
-            status=outcome.status, errors=_parse_errors(outcome.body), body=_snippet(outcome.body)
-        )
+        cls = _error_class(outcome.status)
+        errors = _parse_errors(outcome.body)
+        body = _snippet(outcome.body)
+        if cls is DidwwRateLimitedError:
+            raise DidwwRateLimitedError(
+                status=outcome.status,
+                errors=errors,
+                body=body,
+                retry_after=_retry_after(outcome.headers),
+            )
+        raise cls(status=outcome.status, errors=errors, body=body)
     return outcome.body
 
 

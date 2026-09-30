@@ -5,6 +5,26 @@ Notable changes to the DIDWW Verification SDK for Python.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-10
+
+### Added
+
+- **`code_length` on `SmsInfo` and `CalloutInfo`.** The generated code's length, 4–8.
+
+- **`DidwwRateLimitedError`**, raised on 429 when a start is too soon after a
+  non-denied one for the same destination (`destination_in_cooldown`). Carries
+  `retry_after`, the wait in whole seconds when the response has a `Retry-After`
+  header. Not auto-retried; wait `retry_after` and start again yourself.
+
+### Changed
+
+- `expires_at` and `sms.interception_timeout` reflect the application's configured
+  code lifetime (60–600 seconds, default 300) rather than a fixed window.
+
+- A 429 now raises `DidwwRateLimitedError`, a subclass of `DidwwApiError`, rather
+  than the base class. `except DidwwApiError` still catches it; a strict
+  `type(e) is DidwwApiError` check no longer matches.
+
 ## [1.0.0] — 2026-09
 
 First release.

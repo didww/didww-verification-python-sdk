@@ -144,6 +144,13 @@ verification.callout.language  # the tag the announcement is played in
 The two catalogues are separate: a tag with an SMS template may still have no
 recording.
 
+Each response also reports the generated code's length, 4–8:
+
+```python
+verification.sms.code_length
+verification.callout.code_length
+```
+
 ## Environments
 
 ```python
@@ -286,6 +293,7 @@ except DidwwApiError as exc:
 | `DidwwBalanceInsufficientError` | 402 |
 | `DidwwNotFoundError` | 404 |
 | `DidwwValidationError` | 400, 422 |
+| `DidwwRateLimitedError` | 429 |
 | `DidwwServerError` | 5xx |
 | `DidwwApiError` | any other non-2xx; base class of the above |
 | `DidwwTransportError` | no response: connect, timeout, TLS |
@@ -317,6 +325,11 @@ idempotency key: a repeated start supersedes the live verification and charges a
 and a repeated report consumes one of three attempts. Exceeding that limit is answered
 with a normal 200 whose status is `failed` — read the result rather than counting
 attempts yourself.
+
+A start too soon after a non-denied one for the same destination is refused with 429
+and `destination_in_cooldown`, as `DidwwRateLimitedError`. The SDK never retries it
+automatically: wait `retry_after` seconds — `None` when the response carried no
+`Retry-After` header — then start again yourself.
 
 ## Logging
 

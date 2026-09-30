@@ -77,6 +77,7 @@ API_ERROR_CODES: Final = (
     "balance_insufficient",
     "validation_failed",
     "internal_error",
+    "destination_in_cooldown",
     *VERIFICATION_ERROR_CODES,
 )
 
@@ -112,6 +113,7 @@ KnownApiErrorCode: TypeAlias = Literal[
     "balance_insufficient",
     "validation_failed",
     "internal_error",
+    "destination_in_cooldown",
     "dispatch_failed",
     "expired",
     "too_many_attempts",
