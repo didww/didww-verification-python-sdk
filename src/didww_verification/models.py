@@ -45,9 +45,13 @@ class SmsInfo:
     template: str | None
     language: str | None
     interception_timeout: int | None
+    """Seconds the SMS Retriever stays armed for. Equal to the application's
+    configured code lifetime (60-600, default 300), not a fixed window."""
     app_hash: str | None
     """Echoed back only when a hash was stored. Equality with what you sent is the
     only confirmation it was accepted."""
+    code_length: int
+    """The generated code's length, 4-8."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +59,8 @@ class CalloutInfo:
     """The ``callout`` block, present only when the delivery method is ``callout``."""
 
     language: str | None
+    code_length: int
+    """The generated code's length, 4-8."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +79,8 @@ class Verification:
     error_code: VerificationErrorCode | None
     error_detail: str | None
     expires_at: datetime | None
+    """When the code stops being acceptable: creation time plus the application's
+    configured code lifetime (60-600s, default 300), not a fixed window."""
     sms: SmsInfo | None
     callout: CalloutInfo | None
     raw: Mapping[str, Any] | None = field(default=None, compare=False, hash=False, repr=False)

@@ -17,6 +17,7 @@ from didww_verification import (
     ApplicationAuth,
     BasicAuth,
     DidwwApiError,
+    DidwwRateLimitedError,
     DidwwServerError,
     PublicAuth,
     VerificationClient,
@@ -138,6 +139,17 @@ class TestRetry:
         """A repeated start supersedes and charges again; a repeated report burns an attempt."""
         transport, seen = recording_transport(status=503, body=b"nope")
         with pytest.raises(DidwwServerError):
+            client_with(transport, BasicAuth("k", "s")).start_verification(
+                destination="+37112345678", delivery_method="sms"
+            )
+        assert len(seen) == 1
+
+    def test_a_429_on_start_is_surfaced_once_and_never_retried(self) -> None:
+        """A cooldown is not a transient fault: repeating the POST would charge again."""
+        transport, seen = recording_transport(
+            status=429, body=b'{"errors":[{"code":"destination_in_cooldown"}]}'
+        )
+        with pytest.raises(DidwwRateLimitedError):
             client_with(transport, BasicAuth("k", "s")).start_verification(
                 destination="+37112345678", delivery_method="sms"
             )

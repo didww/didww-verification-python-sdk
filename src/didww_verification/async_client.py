@@ -193,7 +193,7 @@ class AsyncVerificationClient:
             except httpx2.HTTPError as exc:
                 outcome = TransportFailure(exc)
             else:
-                outcome = HttpOutcome(response.status_code, response.content)
+                outcome = HttpOutcome(response.status_code, response.content, response.headers)
             if attempt < attempts and is_retryable(outcome):
                 await anyio.sleep(delay_for(attempt, self._retry.base_delay, self._retry.rand()))
                 continue

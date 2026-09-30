@@ -12,6 +12,7 @@ from didww_verification import (
     DidwwBalanceInsufficientError,
     DidwwDecodingError,
     DidwwNotFoundError,
+    DidwwRateLimitedError,
     DidwwServerError,
     DidwwTransportError,
     DidwwUnauthorizedError,
@@ -72,11 +73,33 @@ class TestSuccess:
         assert len({v, decode_verification(ok())}) == 1
 
     def test_the_sms_block_is_absent_for_a_callout(self) -> None:
-        payload = verification_payload(delivery_method="callout", callout={"language": "de-DE"})
+        payload = verification_payload(
+            delivery_method="callout", callout={"language": "de-DE", "code_length": 6}
+        )
         del payload["sms"]
         v = decode_verification(HttpOutcome(200, json.dumps({"data": payload}).encode()))
         assert v.sms is None
         assert v.callout is not None and v.callout.language == "de-DE"
+
+    def test_sms_code_length_is_readable_when_present(self) -> None:
+        v = decode_verification(ok())
+        assert v.sms is not None
+        assert v.sms.code_length == 6
+
+    def test_sms_code_length_rejects_a_bool(self) -> None:
+        """``bool`` is an ``int`` subclass in Python, so it needs an explicit check."""
+        sms = {**verification_payload()["sms"], "code_length": True}
+        with pytest.raises(DidwwDecodingError):
+            decode_verification(ok(sms=sms))
+
+    def test_callout_code_length_is_readable_when_present(self) -> None:
+        payload = verification_payload(
+            delivery_method="callout", callout={"language": "de-DE", "code_length": 4}
+        )
+        del payload["sms"]
+        v = decode_verification(HttpOutcome(200, json.dumps({"data": payload}).encode()))
+        assert v.callout is not None
+        assert v.callout.code_length == 4
 
 
 class TestErrors:
@@ -88,6 +111,7 @@ class TestErrors:
             (402, DidwwBalanceInsufficientError),
             (404, DidwwNotFoundError),
             (422, DidwwValidationError),
+            (429, DidwwRateLimitedError),
             (500, DidwwServerError),
             (503, DidwwServerError),
             (418, DidwwApiError),
@@ -97,6 +121,32 @@ class TestErrors:
         body = b'{"errors":[{"code":"unauthorized","detail":"unauthorized"}]}'
         with pytest.raises(cls):
             decode_verification(HttpOutcome(status, body))
+
+    def test_a_429_carries_the_cooldown_slug_and_retry_after(self) -> None:
+        body = b'{"errors":[{"code":"destination_in_cooldown","detail":"try again shortly"}]}'
+        with pytest.raises(DidwwRateLimitedError) as excinfo:
+            decode_verification(HttpOutcome(429, body, {"retry-after": "17"}))
+        assert excinfo.value.retry_after == 17
+        assert excinfo.value.has_code("destination_in_cooldown")
+
+    @pytest.mark.parametrize(
+        "headers",
+        [
+            {},
+            {"retry-after": "soon"},
+            {"retry-after": "-5"},
+            {"retry-after": "1_0"},
+            {"retry-after": "1.5"},
+            {"retry-after": ""},
+        ],
+        ids=["absent", "unparsable", "negative", "underscored", "decimal", "empty"],
+    )
+    def test_a_429s_retry_after_is_none_when_it_cannot_be_read(
+        self, headers: dict[str, str]
+    ) -> None:
+        with pytest.raises(DidwwRateLimitedError) as excinfo:
+            decode_verification(HttpOutcome(429, b'{"errors":[]}', headers))
+        assert excinfo.value.retry_after is None
 
     def test_every_error_in_the_envelope_is_kept(self) -> None:
         """A validation failure returns one entry per field, so errors[0] is not enough."""

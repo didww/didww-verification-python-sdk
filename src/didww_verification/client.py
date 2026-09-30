@@ -191,7 +191,7 @@ class VerificationClient:
             except httpx2.HTTPError as exc:
                 outcome = TransportFailure(exc)
             else:
-                outcome = HttpOutcome(response.status_code, response.content)
+                outcome = HttpOutcome(response.status_code, response.content, response.headers)
             if attempt < attempts and is_retryable(outcome):
                 time.sleep(delay_for(attempt, self._retry.base_delay, self._retry.rand()))
                 continue
