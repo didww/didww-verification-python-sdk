@@ -5,14 +5,6 @@ Notable changes to the DIDWW Verification SDK for Python.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Deprecated
-
-- **`user_agent`** on `VerificationClient` and `AsyncVerificationClient` is deprecated and
-  ignored. The SDK always sends its own `User-Agent`; passing this parameter now emits a
-  `DeprecationWarning` and will be removed in the next major version.
-
 ## [1.1.0] — 2026-10
 
 ### Added
@@ -32,6 +24,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - A 429 now raises `DidwwRateLimitedError`, a subclass of `DidwwApiError`, rather
   than the base class. `except DidwwApiError` still catches it; a strict
   `type(e) is DidwwApiError` check no longer matches.
+
+### Deprecated
+
+- **`user_agent`** on `VerificationClient` and `AsyncVerificationClient` is deprecated and
+  ignored. The SDK always sends its own `User-Agent`; passing this parameter now emits a
+  `DeprecationWarning` and will be removed in the next major version.
 
 ## [1.0.0] — 2026-09
 
