@@ -12,6 +12,7 @@ import sys
 from didww_verification import (
     AsyncVerificationClient,
     BasicAuth,
+    DidwwRateLimitedError,
     DidwwValidationError,
     Environment,
 )
@@ -21,9 +22,14 @@ async def main(destination: str) -> int:
     auth = BasicAuth(os.environ["DIDWW_KEY"], os.environ["DIDWW_SECRET"])
 
     async with AsyncVerificationClient(auth, environment=Environment.SANDBOX) as client:
-        verification = await client.start_verification(
-            destination=destination, delivery_method="sms"
-        )
+        try:
+            verification = await client.start_verification(
+                destination=destination, delivery_method="sms"
+            )
+        except DidwwRateLimitedError as exc:
+            wait = f"{exc.retry_after}s" if exc.retry_after is not None else "a bit"
+            print(f"too soon after the last start; wait {wait} and try again")
+            return 1
         print(f"started {verification.id}")
 
         code = await asyncio.to_thread(input, "code from the SMS: ")

@@ -10,6 +10,7 @@ import sys
 
 from didww_verification import (
     BasicAuth,
+    DidwwRateLimitedError,
     DidwwValidationError,
     Environment,
     SmsOptions,
@@ -21,11 +22,16 @@ def main(destination: str) -> int:
     auth = BasicAuth(os.environ["DIDWW_KEY"], os.environ["DIDWW_SECRET"])
 
     with VerificationClient(auth, environment=Environment.SANDBOX) as client:
-        verification = client.start_verification(
-            destination=destination,
-            delivery_method="sms",
-            sms=SmsOptions(languages=["en-US"]),
-        )
+        try:
+            verification = client.start_verification(
+                destination=destination,
+                delivery_method="sms",
+                sms=SmsOptions(languages=["en-US"]),
+            )
+        except DidwwRateLimitedError as exc:
+            wait = f"{exc.retry_after}s" if exc.retry_after is not None else "a bit"
+            print(f"too soon after the last start; wait {wait} and try again")
+            return 1
         print(f"started {verification.id}, expires at {verification.expires_at}")
         if verification.sms is not None:
             print(f"rendered in {verification.sms.language}")
