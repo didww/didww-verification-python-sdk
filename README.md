@@ -140,8 +140,9 @@ from didww_verification import Autofill
 SmsOptions(autofill=Autofill.app_hash("abcdefghijk"))
 ```
 
-`SmsOptions(app_hash=...)` and `SmsInfo.app_hash` still work but are deprecated; the
-service no longer reads or returns the `app_hash` field.
+`SmsOptions(app_hash=...)` and `SmsInfo.app_hash` still work but are deprecated in favour
+of `autofill`. The alias is sent as `autofill`, and passing it together with a different
+`autofill` raises `ValueError`.
 
 Languages are BCP 47 tags, tried in order, falling back to `en-US`. **Send the region
 subtag.** A bare primary subtag like `pl` passes validation and then silently falls

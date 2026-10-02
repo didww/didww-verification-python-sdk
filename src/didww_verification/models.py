@@ -91,8 +91,8 @@ class SmsInfo:
     """Seconds the SMS Retriever stays armed for. Equal to the application's
     configured code lifetime (60-600, default 300), not a fixed window."""
     app_hash: str | None
-    """Deprecated: ``autofill.value`` when ``autofill.type`` is ``app_hash``, else
-    ``None``. The service no longer returns this field itself."""
+    """Deprecated, use ``autofill``. Holds ``autofill.value`` when ``autofill.type`` is
+    ``app_hash``, else ``None``."""
     code_length: int
     """The generated code's length, 4-8."""
     autofill: Autofill | None = None
