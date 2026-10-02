@@ -36,7 +36,7 @@ from .errors import (
     DidwwVerificationError,
     ErrorItem,
 )
-from .models import CalloutInfo, CalloutOptions, SmsInfo, SmsOptions, Verification
+from .models import Autofill, CalloutInfo, CalloutOptions, SmsInfo, SmsOptions, Verification
 from .vocabulary import (
     API_ERROR_CODES,
     DELIVERY_METHODS,
@@ -65,6 +65,7 @@ __all__ = [
     "ApplicationAuth",
     "AsyncVerificationClient",
     "Auth",
+    "Autofill",
     "BasicAuth",
     "CalloutInfo",
     "CalloutOptions",

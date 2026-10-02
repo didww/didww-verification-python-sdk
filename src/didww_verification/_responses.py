@@ -23,7 +23,7 @@ from .errors import (
     DidwwValidationError,
     ErrorItem,
 )
-from .models import CalloutInfo, SmsInfo, Verification
+from .models import Autofill, CalloutInfo, SmsInfo, Verification
 
 __all__ = [
     "HttpOutcome",
@@ -156,12 +156,26 @@ def _sms(block: object) -> SmsInfo | None:
     timeout = fields.get("interception_timeout")
     if timeout is not None and not isinstance(timeout, int):
         raise DidwwDecodingError(f"sms.interception_timeout is not an integer: {timeout!r}")
+    autofill = _autofill(fields.get("autofill"))
     return SmsInfo(
         template=_optional_str(fields.get("template"), "sms.template"),
         language=_optional_str(fields.get("language"), "sms.language"),
         interception_timeout=timeout,
-        app_hash=_optional_str(fields.get("app_hash"), "sms.app_hash"),
+        app_hash=autofill.value if autofill is not None and autofill.type == "app_hash" else None,
         code_length=_required_int(fields.get("code_length"), "sms.code_length"),
+        autofill=autofill,
+    )
+
+
+def _autofill(block: object) -> Autofill | None:
+    if block is None:
+        return None
+    if not isinstance(block, dict):
+        raise DidwwDecodingError(f"sms.autofill is not an object: {block!r}")
+    fields = cast("dict[str, object]", block)
+    return Autofill(
+        type=_required_str(fields.get("type"), "sms.autofill.type"),
+        value=_optional_str(fields.get("value"), "sms.autofill.value"),
     )
 
 
