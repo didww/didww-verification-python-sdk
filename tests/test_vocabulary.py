@@ -31,10 +31,10 @@ class TestTupleAndLiteralAgree:
 
 
 class TestShape:
-    def test_the_registry_has_28_slugs(self) -> None:
-        """19 envelope plus 9 outcome, as the service defines them."""
-        assert len(v.API_ERROR_CODES) == 28
-        assert len(v.VERIFICATION_ERROR_CODES) == 9
+    def test_the_registry_has_27_slugs(self) -> None:
+        """19 envelope plus 8 outcome, as the service defines them."""
+        assert len(v.API_ERROR_CODES) == 27
+        assert len(v.VERIFICATION_ERROR_CODES) == 8
 
     def test_every_outcome_code_is_in_the_combined_set(self) -> None:
         """Not a subset of the *envelope* codes: an outcome arrives on a 200 and never
@@ -67,6 +67,7 @@ class TestPredicates:
         assert not v.is_known_delivery_method("some_new_channel")
         assert not v.is_known_verification_status("some_new_status")
         assert not v.is_known_api_error_code("some_new_code")
+        assert not v.is_known_verification_error_code("stale_dispatch")
 
 
 class TestTheVendoredContractAgrees:

@@ -163,6 +163,14 @@ VerificationClient(auth, base_url="http://localhost:3000")  # an origin, no path
 `base_url` must be an origin. The SDK adds its own `/api/v1` prefix, and a base URL
 that already contains it produces a doubled path.
 
+## Testing
+
+Use the sandbox environment (`Environment.SANDBOX`) with the reserved test numbers.
+`+12015550100` to `+12015550109` always succeed: the code is `1` repeated to the
+application's code length, for example `111111` for six digits. Other reserved ranges
+simulate failures. The full table is in
+[Testing on sandbox](https://doc.didww.com/otp-verification/testing.html).
+
 ## Authentication
 
 Three schemes, ranked `public < basic < application`. Each application has a minimum;
