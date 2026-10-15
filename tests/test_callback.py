@@ -27,9 +27,11 @@ BODY = json.dumps(
 ).encode()
 
 
-def signature_for(path: str, *, timestamp: int = NOW, body: bytes = BODY) -> str:
+def signature_for(
+    path: str, *, timestamp: int = NOW, body: bytes = BODY, secret: str = SECRET
+) -> str:
     return sign(
-        decode_secret(SECRET),
+        decode_secret(secret),
         string_to_sign(
             method="POST",
             path=path,
@@ -44,13 +46,20 @@ def verifier_for(url: str, tolerance: int = 300) -> CallbackVerifier:
     return CallbackVerifier(secret=SECRET, callback_url=url, tolerance=tolerance, clock=lambda: NOW)
 
 
-def check(v: CallbackVerifier, signature: str | None, *, timestamp: object = NOW) -> object:
+def check(
+    v: CallbackVerifier,
+    signature: str | None,
+    *,
+    timestamp: object = NOW,
+    previous_signature: str | None = None,
+) -> object:
     return v.check(
         method="POST",
         content_type="application/json",
         body=BODY,
         timestamp=None if timestamp is None else str(timestamp),
         signature=signature,
+        previous_signature=previous_signature,
     )
 
 
@@ -144,6 +153,80 @@ class TestRejection:
     def test_a_relative_callback_url_is_rejected(self) -> None:
         with pytest.raises(DidwwConfigurationError):
             CallbackVerifier(secret=SECRET, callback_url="/cb")
+
+
+class TestSecretRotation:
+    """During a rotation the service signs ``Authorization`` with the new secret and
+    ``x-signature-previous`` with the old one. A receiver may hold either."""
+
+    OLD_SECRET = "oLd_secret_urlsafe_base64_value_AAA"
+    NEW_SECRET = "nEw_secret_urlsafe_base64_value_AAA"
+    URL = "https://example.com/cb"
+
+    def _verifier(self, secret: str, tolerance: int = 300) -> CallbackVerifier:
+        return CallbackVerifier(
+            secret=secret, callback_url=self.URL, tolerance=tolerance, clock=lambda: NOW
+        )
+
+    def _headers(self, timestamp: int = NOW) -> tuple[str, str]:
+        new = signature_for("/cb", secret=self.NEW_SECRET, timestamp=timestamp)
+        old = signature_for("/cb", secret=self.OLD_SECRET, timestamp=timestamp)
+        return new, old
+
+    def test_the_current_signature_passes_with_the_new_secret(self) -> None:
+        new, old = self._headers()
+        v = self._verifier(self.NEW_SECRET)
+        assert check(v, new, previous_signature=old) is None
+
+    def test_the_previous_signature_passes_with_the_old_secret_configured(self) -> None:
+        new, old = self._headers()
+        v = self._verifier(self.OLD_SECRET)
+        assert check(v, new, previous_signature=old) is None
+
+    def test_is_valid_accepts_the_previous_signature(self) -> None:
+        new, old = self._headers()
+        assert self._verifier(self.OLD_SECRET).is_valid(
+            method="POST",
+            content_type="application/json",
+            body=BODY,
+            timestamp=str(NOW),
+            signature=new,
+            previous_signature=old,
+        )
+
+    def test_the_old_secret_alone_does_not_pass_without_the_header(self) -> None:
+        new, _old = self._headers()
+        assert check(self._verifier(self.OLD_SECRET), new) is RejectionReason.BAD_SIGNATURE
+
+    @pytest.mark.parametrize("previous", [None, ""])
+    def test_an_absent_or_empty_previous_header_behaves_as_before(
+        self, previous: str | None
+    ) -> None:
+        new, _old = self._headers()
+        assert check(self._verifier(self.NEW_SECRET), new, previous_signature=previous) is None
+        got = check(self._verifier(self.OLD_SECRET), new, previous_signature=previous)
+        assert got is RejectionReason.BAD_SIGNATURE
+
+    def test_neither_signature_matching_is_rejected(self) -> None:
+        other = signature_for("/cb", secret="oThEr_secret_urlsafe_base64_value_AA")
+        v = self._verifier(self.OLD_SECRET)
+        assert check(v, other, previous_signature=other) is RejectionReason.BAD_SIGNATURE
+
+    def test_a_non_ascii_previous_signature_is_rejected_not_raised(self) -> None:
+        new, _old = self._headers()
+        got = check(self._verifier(self.OLD_SECRET), new, previous_signature="sig\u00e9")
+        assert got is RejectionReason.BAD_SIGNATURE
+
+    def test_a_missing_authorization_signature_is_still_rejected(self) -> None:
+        _new, old = self._headers()
+        got = check(self._verifier(self.OLD_SECRET), None, previous_signature=old)
+        assert got is RejectionReason.MISSING_SIGNATURE
+
+    def test_a_stale_timestamp_is_rejected_even_with_a_valid_previous_signature(self) -> None:
+        stale = NOW + 301
+        new, old = self._headers(timestamp=stale)
+        got = check(self._verifier(self.OLD_SECRET), new, timestamp=stale, previous_signature=old)
+        assert got is RejectionReason.STALE_TIMESTAMP
 
 
 class TestParseAuthorization:

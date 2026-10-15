@@ -42,6 +42,7 @@ def check_request(verifier: CallbackVerifier, request: HttpRequest) -> Rejection
         body=request.body,
         timestamp=request.headers.get("x-timestamp"),
         signature=signature,
+        previous_signature=request.headers.get("x-signature-previous"),
     )
 
 

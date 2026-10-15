@@ -217,6 +217,17 @@ differ. Two consequences:
 Importing `didww_verification.callback` pulls in no HTTP client, so a service that
 only receives callbacks pays nothing for one.
 
+### Rotating the application secret
+
+During a rotation the service also sends an `x-signature-previous` header: the same
+signature, made with the previous secret. The verifier accepts a callback when either
+signature matches the configured secret, so you can switch your receiver from the old
+secret to the new one at any time in the grace period, without downtime.
+
+The FastAPI and Django adapters read the header for you. **Upgrade the SDK before you
+rotate**: an older verifier reads only `Authorization`, which is signed with the new
+secret, so a receiver still configured with the old secret would reject every callback.
+
 ### FastAPI / Starlette
 
 ```python
@@ -266,6 +277,7 @@ verifier.is_valid(
     body=raw_body,
     timestamp=request.headers.get("x-timestamp"),
     signature=signature,  # from parse_authorization(...)
+    previous_signature=request.headers.get("x-signature-previous"),  # optional
 )
 ```
 

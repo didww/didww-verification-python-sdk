@@ -5,6 +5,17 @@ Notable changes to the DIDWW Verification SDK for Python.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`x-signature-previous` support in `CallbackVerifier`.** While an application secret is
+  being rotated, callbacks also carry a signature made with the previous secret. The
+  verifier takes it as the optional `previous_signature` argument to `check()` and
+  `is_valid()` and accepts a callback when either signature matches the configured secret.
+  The FastAPI and Django adapters pass the header through. Without the header, behaviour
+  is unchanged.
+
 ## [1.1.0] — 2026-10
 
 ### Added
