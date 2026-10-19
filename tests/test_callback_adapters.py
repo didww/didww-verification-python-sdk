@@ -37,9 +37,12 @@ def verifier() -> CallbackVerifier:
     )
 
 
-def good_signature(body: bytes = BODY) -> str:
+OLD_SECRET = "oLd_secret_urlsafe_base64_value_AAA"
+
+
+def good_signature(body: bytes = BODY, secret: str = SECRET) -> str:
     return sign(
-        decode_secret(SECRET),
+        decode_secret(secret),
         string_to_sign(
             method="POST",
             path=PATH,
@@ -50,8 +53,18 @@ def good_signature(body: bytes = BODY) -> str:
     )
 
 
-def _headers(signature: str | None, timestamp: str | None = str(NOW)) -> list[tuple[bytes, bytes]]:
+def old_secret_verifier() -> CallbackVerifier:
+    return CallbackVerifier(
+        secret=OLD_SECRET, callback_url=f"https://example.com{PATH}", clock=lambda: NOW
+    )
+
+
+def _headers(
+    signature: str | None, timestamp: str | None = str(NOW), previous: str | None = None
+) -> list[tuple[bytes, bytes]]:
     out = [(b"content-type", b"application/json")]
+    if previous is not None:
+        out.append((b"x-signature-previous", previous.encode()))
     if signature is not None:
         out.append((b"authorization", f"Application key:{signature}".encode()))
     if timestamp is not None:
@@ -60,7 +73,9 @@ def _headers(signature: str | None, timestamp: str | None = str(NOW)) -> list[tu
 
 
 class TestStarlette:
-    def _request(self, signature: str | None, body: bytes = BODY) -> object:
+    def _request(
+        self, signature: str | None, body: bytes = BODY, previous: str | None = None
+    ) -> object:
         from starlette.requests import Request
 
         scope = {
@@ -70,7 +85,7 @@ class TestStarlette:
             "path": PATH,
             "raw_path": PATH.encode(),
             "query_string": b"",
-            "headers": _headers(signature),
+            "headers": _headers(signature, previous=previous),
             "scheme": "https",
             "server": ("example.com", 443),
             "client": ("192.0.2.1", 1234),  # RFC 5737 documentation range
@@ -98,9 +113,20 @@ class TestStarlette:
         got = anyio.run(lambda: starlette_check(verifier(), request))  # type: ignore[arg-type]
         assert got is RejectionReason.MISSING_SIGNATURE
 
+    def test_the_previous_signature_header_is_passed_through(self) -> None:
+        request = self._request(good_signature(), previous=good_signature(secret=OLD_SECRET))
+        assert anyio.run(lambda: starlette_check(old_secret_verifier(), request)) is None  # type: ignore[arg-type]
+
+    def test_without_the_previous_header_the_old_secret_is_rejected(self) -> None:
+        request = self._request(good_signature())
+        got = anyio.run(lambda: starlette_check(old_secret_verifier(), request))  # type: ignore[arg-type]
+        assert got is RejectionReason.BAD_SIGNATURE
+
 
 class TestDjango:
-    def _request(self, signature: str | None, body: bytes = BODY) -> object:
+    def _request(
+        self, signature: str | None, body: bytes = BODY, previous: str | None = None
+    ) -> object:
         import django
         from django.conf import settings
 
@@ -111,10 +137,12 @@ class TestDjango:
         from django.test import RequestFactory
 
         authorization = "" if signature is None else f"Application key:{signature}"
+        extra: dict[str, str] = {} if previous is None else {"x-signature-previous": previous}
         return RequestFactory().post(
             PATH,
             data=body,
             content_type="application/json",
+            headers=extra,
             HTTP_AUTHORIZATION=authorization,
             HTTP_X_TIMESTAMP=str(NOW),
         )
@@ -129,3 +157,12 @@ class TestDjango:
     def test_a_missing_signature_fails(self) -> None:
         request = self._request(None)
         assert django_check(verifier(), request) is RejectionReason.MISSING_SIGNATURE  # type: ignore[arg-type]
+
+    def test_the_previous_signature_header_is_passed_through(self) -> None:
+        request = self._request(good_signature(), previous=good_signature(secret=OLD_SECRET))
+        assert django_check(old_secret_verifier(), request) is None  # type: ignore[arg-type]
+
+    def test_without_the_previous_header_the_old_secret_is_rejected(self) -> None:
+        request = self._request(good_signature())
+        got = django_check(old_secret_verifier(), request)  # type: ignore[arg-type]
+        assert got is RejectionReason.BAD_SIGNATURE

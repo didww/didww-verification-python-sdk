@@ -45,6 +45,11 @@ def parse_authorization(header: str | None) -> tuple[str | None, str | None]:
     return (key or None, signature or None)
 
 
+def _same(expected: str, received: str) -> bool:
+    # Bytes, because compare_digest raises on a non-ASCII str.
+    return hmac.compare_digest(expected.encode(), received.encode())
+
+
 def allow() -> str:
     """The JSON body that lets a verification proceed."""
     return json.dumps({"action": "allow"})
@@ -116,11 +121,16 @@ class CallbackVerifier:
         body: bytes,
         timestamp: str | None,
         signature: str | None,
+        previous_signature: str | None = None,
     ) -> RejectionReason | None:
         """Return ``None`` when the request is authentic, else why it is not.
 
         ``body`` must be the exact bytes received. Re-serializing parsed parameters
         changes key order, whitespace and escaping, and the signature will not match.
+
+        ``previous_signature`` is the ``x-signature-previous`` header, sent while the
+        application secret is being rotated. The request is authentic when either
+        signature matches the configured secret.
         """
         if not signature:
             return RejectionReason.MISSING_SIGNATURE
@@ -144,7 +154,10 @@ class CallbackVerifier:
             ),
         )
         # Constant time: a short-circuiting compare leaks how much of a forgery matched.
-        if not hmac.compare_digest(expected, signature):
+        # Both run every time so a missing previous signature is not observable.
+        matches_current = _same(expected, signature)
+        matches_previous = _same(expected, previous_signature or "")
+        if not (matches_current or matches_previous):
             return RejectionReason.BAD_SIGNATURE
         return None
 
@@ -156,6 +169,7 @@ class CallbackVerifier:
         body: bytes,
         timestamp: str | None,
         signature: str | None,
+        previous_signature: str | None = None,
     ) -> bool:
         """:meth:`check`, as a boolean."""
         return (
@@ -165,6 +179,7 @@ class CallbackVerifier:
                 body=body,
                 timestamp=timestamp,
                 signature=signature,
+                previous_signature=previous_signature,
             )
             is None
         )

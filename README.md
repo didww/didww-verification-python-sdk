@@ -129,6 +129,25 @@ client.start_verification(
 )
 ```
 
+SMS autofill is set with `autofill`: `Autofill.app_hash("<11-char hash>")` frames the
+message for the Android SMS Retriever, `Autofill.domain()` adds a domain-bound line for
+the application's configured SMS domain, `Autofill.none()` sends no marker, and leaving
+it unset uses the application default. The verification echoes it back as
+`verification.sms.autofill`, only when a hash or domain marker was stored; for
+`domain`, `value` is the domain. `Autofill.domain()` on an application with no SMS
+domain is refused with `sms_domain_not_configured`, and a malformed `autofill` with
+`autofill_invalid`.
+
+```python
+from didww_verification import Autofill
+
+SmsOptions(autofill=Autofill.app_hash("abcdefghijk"))
+```
+
+`SmsOptions(app_hash=...)` and `SmsInfo.app_hash` still work but are deprecated in favour
+of `autofill`. The alias is sent as `autofill`, and passing it together with a different
+`autofill` raises `ValueError`.
+
 Languages are BCP 47 tags, tried in order, falling back to `en-US`. **Send the region
 subtag.** A bare primary subtag like `pl` passes validation and then silently falls
 back, because the catalogue is matched on the exact canonical tag.
@@ -150,6 +169,48 @@ Each response also reports the generated code's length, 4–8:
 verification.sms.code_length
 verification.callout.code_length
 ```
+
+### Template groups
+
+`template_group` picks one of your template groups instead of the application's
+default. An unknown name is refused with `template_group_not_found`.
+
+```python
+SmsOptions(template_group="checkout")
+CalloutOptions(template_group="checkout")
+```
+
+Both `sms` and `callout` in the response report what happened:
+
+```python
+verification.sms.template_group  # the group applied, or None
+verification.sms.template_group_used  # True when the group's template was used
+verification.sms.template_fallback_reason  # why not: language_missing, version_pending, ...
+```
+
+When no template group applies at all, `template_group_used` is `False` and
+`template_fallback_reason` is `None`. `group_missing` means the requested or default
+group no longer exists, and comes with `template_group` set to `None`.
+
+`template_fallback_reason` is an open vocabulary (`TEMPLATE_FALLBACK_REASONS`); a
+reason added later arrives as a plain string.
+
+## Passing data to your callback
+
+`custom` is a free-text string of up to 4096 characters, sent at the top level of the
+request rather than inside a channel block:
+
+```python
+client.start_verification(
+    destination="+37112345678",
+    delivery_method="sms",
+    custom="order-42",
+)
+```
+
+It reaches your callback server unchanged as `data.custom` (see below) and is not
+returned by any response. Longer values are refused with `custom_too_long`; an empty
+string is treated as unset.
 
 ## Environments
 
@@ -214,8 +275,30 @@ differ. Two consequences:
 - `https://example.com` and `https://example.com/` are different signatures. Do not
   normalise the trailing slash.
 
+The request body is the `verification_request` event. `data.custom` holds the value
+passed to `start_verification`; the key is absent when none was given.
+
+```python
+custom = payload["data"].get("custom")
+```
+
+**Treat `custom` as untrusted.** When the start request comes from a mobile app, the
+app controls it, so validate it against your own records instead of acting on it as
+given.
+
 Importing `didww_verification.callback` pulls in no HTTP client, so a service that
 only receives callbacks pays nothing for one.
+
+### Rotating the application secret
+
+During a rotation the service also sends an `x-signature-previous` header: the same
+signature, made with the previous secret. The verifier accepts a callback when either
+signature matches the configured secret, so you can switch your receiver from the old
+secret to the new one at any time in the grace period, without downtime.
+
+The FastAPI and Django adapters read the header for you. **Upgrade the SDK before you
+rotate**: an older verifier reads only `Authorization`, which is signed with the new
+secret, so a receiver still configured with the old secret would reject every callback.
 
 ### FastAPI / Starlette
 
@@ -266,6 +349,7 @@ verifier.is_valid(
     body=raw_body,
     timestamp=request.headers.get("x-timestamp"),
     signature=signature,  # from parse_authorization(...)
+    previous_signature=request.headers.get("x-signature-previous"),  # optional
 )
 ```
 
@@ -305,6 +389,10 @@ validation failure returns one per field — so use `codes` and `has_code`, not
 `errors[0]`. `code` is a stable slug to switch on; `detail` is fixed prose to display,
 never to parse.
 
+Some starts are refused as an outcome rather than an error: a 201 whose `status` is
+`denied` or `failed`, with `error_code` set to `application_paused`,
+`destination_country_disabled` or `destination_not_supported_for_channel`.
+
 A non-2xx whose body is not JSON still raises the status-mapped error with empty
 `errors`, so an error page from a proxy surfaces as the server error it is.
 
@@ -326,10 +414,21 @@ and a repeated report consumes one of three attempts. Exceeding that limit is an
 with a normal 200 whose status is `failed` — read the result rather than counting
 attempts yourself.
 
-A start too soon after a non-denied one for the same destination is refused with 429
-and `destination_in_cooldown`, as `DidwwRateLimitedError`. The SDK never retries it
-automatically: wait `retry_after` seconds — `None` when the response carried no
-`Retry-After` header — then start again yourself.
+A 429 raises `DidwwRateLimitedError`, and its code says which limit was hit:
+
+- `destination_in_cooldown`: a verification for this destination was requested too
+  recently.
+- `rate_limit_per_ip`: too many requests from this IP address.
+- `rate_limit_failed_auth`: too many failed authentication attempts from this IP
+  address.
+- `rate_limit_per_account`: too many requests for this account.
+- `rate_limit_public_per_account`: too many public requests for this account.
+- `volume_limit_reached`: the application reached its daily or monthly verification
+  limit for this delivery method. `Retry-After` can be long (days); surface it to the
+  user instead of retrying, or contact support to raise the limit.
+
+The SDK never retries a 429 automatically: wait `retry_after` seconds — `None` when the response carried no
+`Retry-After` header — then try again yourself.
 
 ## Logging
 

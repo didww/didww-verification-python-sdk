@@ -23,7 +23,7 @@ from .errors import (
     DidwwValidationError,
     ErrorItem,
 )
-from .models import CalloutInfo, SmsInfo, Verification
+from .models import Autofill, CalloutInfo, SmsInfo, Verification
 
 __all__ = [
     "HttpOutcome",
@@ -147,6 +147,12 @@ def _required_int(value: object, field: str) -> int:
     raise DidwwDecodingError(f"{field} is missing or not an integer: {value!r}")
 
 
+def _required_bool(value: object, field: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise DidwwDecodingError(f"{field} is missing or not a boolean: {value!r}")
+
+
 def _sms(block: object) -> SmsInfo | None:
     if block is None:
         return None
@@ -156,12 +162,33 @@ def _sms(block: object) -> SmsInfo | None:
     timeout = fields.get("interception_timeout")
     if timeout is not None and not isinstance(timeout, int):
         raise DidwwDecodingError(f"sms.interception_timeout is not an integer: {timeout!r}")
+    autofill = _autofill(fields.get("autofill"))
     return SmsInfo(
         template=_optional_str(fields.get("template"), "sms.template"),
         language=_optional_str(fields.get("language"), "sms.language"),
         interception_timeout=timeout,
-        app_hash=_optional_str(fields.get("app_hash"), "sms.app_hash"),
+        app_hash=autofill.value if autofill is not None and autofill.type == "app_hash" else None,
         code_length=_required_int(fields.get("code_length"), "sms.code_length"),
+        template_group=_optional_str(fields.get("template_group"), "sms.template_group"),
+        template_group_used=_required_bool(
+            fields.get("template_group_used"), "sms.template_group_used"
+        ),
+        template_fallback_reason=_optional_str(
+            fields.get("template_fallback_reason"), "sms.template_fallback_reason"
+        ),
+        autofill=autofill,
+    )
+
+
+def _autofill(block: object) -> Autofill | None:
+    if block is None:
+        return None
+    if not isinstance(block, dict):
+        raise DidwwDecodingError(f"sms.autofill is not an object: {block!r}")
+    fields = cast("dict[str, object]", block)
+    return Autofill(
+        type=_required_str(fields.get("type"), "sms.autofill.type"),
+        value=_optional_str(fields.get("value"), "sms.autofill.value"),
     )
 
 
@@ -174,6 +201,13 @@ def _callout(block: object) -> CalloutInfo | None:
     return CalloutInfo(
         language=_optional_str(fields.get("language"), "callout.language"),
         code_length=_required_int(fields.get("code_length"), "callout.code_length"),
+        template_group=_optional_str(fields.get("template_group"), "callout.template_group"),
+        template_group_used=_required_bool(
+            fields.get("template_group_used"), "callout.template_group_used"
+        ),
+        template_fallback_reason=_optional_str(
+            fields.get("template_fallback_reason"), "callout.template_fallback_reason"
+        ),
     )
 
 

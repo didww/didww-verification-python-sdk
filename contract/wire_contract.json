@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-09-28",
+  "capturedAt": "2026-10-19",
   "source": "Captured from the verification service's own error registry and route table.",
   "baseUrls": {
     "production": "https://verification.didww.com",
@@ -17,6 +17,13 @@
     "expired",
     "denied"
   ],
+  "templateFallbackReasons": [
+    "language_missing",
+    "version_pending",
+    "version_rejected",
+    "audio_not_ready",
+    "group_missing"
+  ],
   "envelopeErrorCodes": [
     "destination_blank",
     "destination_invalid",
@@ -24,7 +31,11 @@
     "delivery_method_inclusion",
     "delivery_method_invalid",
     "languages_invalid",
+    "autofill_invalid",
     "app_hash_invalid",
+    "custom_too_long",
+    "template_group_not_found",
+    "sms_domain_not_configured",
     "code_blank",
     "destination_not_supported_for_channel",
     "code_invalid",
@@ -36,7 +47,12 @@
     "balance_insufficient",
     "validation_failed",
     "internal_error",
-    "destination_in_cooldown"
+    "destination_in_cooldown",
+    "rate_limit_per_ip",
+    "rate_limit_failed_auth",
+    "rate_limit_per_account",
+    "rate_limit_public_per_account",
+    "volume_limit_reached"
   ],
   "verificationErrorCodes": [
     "dispatch_failed",
@@ -47,8 +63,12 @@
     "superseded",
     "denied_missing_callback_url",
     "denied_by_callback",
-    "denied_invalid_callback_response"
+    "denied_invalid_callback_response",
+    "application_paused",
+    "destination_country_disabled",
+    "destination_not_supported_for_channel"
   ],
+  "verificationErrorCodesNote": "destination_not_supported_for_channel is an outcome code; it stays in the envelope list for compatibility. stale_dispatch is no longer sent; it is reported as dispatch_failed and kept only so existing matches still type-check.",
   "routes": [
     {
       "name": "startVerification",
@@ -76,6 +96,7 @@
       "errorStatuses": [
         401,
         404,
+        429,
         500
       ]
     },
@@ -92,6 +113,7 @@
         401,
         404,
         422,
+        429,
         500
       ],
       "notes": "PUT and PATCH are the same operation, not two."
@@ -106,6 +128,7 @@
       "errorStatuses": [
         401,
         404,
+        429,
         500
       ]
     },
@@ -122,6 +145,7 @@
         401,
         404,
         422,
+        429,
         500
       ]
     }

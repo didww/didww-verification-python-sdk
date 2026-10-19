@@ -5,14 +5,14 @@ from __future__ import annotations
 import base64
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, fields
+from dataclasses import asdict, dataclass, fields
 from typing import Any, Literal, cast
 from urllib.parse import quote
 
 import httpx2
 
 from .auth import Auth, BasicAuth, PublicAuth
-from .models import CalloutOptions, SmsOptions
+from .models import Autofill, CalloutOptions, SmsOptions
 from .phone_number import digits_of
 from .signing import sign, string_to_sign
 
@@ -64,10 +64,12 @@ def _channel_block(options: SmsOptions | CalloutOptions) -> dict[str, Any]:
     block: dict[str, Any] = {}
     for field in fields(options):
         value: object = getattr(options, field.name)
-        if value is None:
+        if value is None or field.name == "app_hash":  # deprecated alias, sent as autofill
             continue
         if isinstance(value, Sequence) and not isinstance(value, str):
             value = list(cast("Sequence[object]", value))
+        if isinstance(value, Autofill):
+            value = {"type": value.type} if value.value is None else asdict(value)
         block[field.name] = value
     return block
 
@@ -78,18 +80,23 @@ def build_start(
     delivery_method: str,
     sms: SmsOptions | None = None,
     callout: CalloutOptions | None = None,
+    custom: str | None = None,
 ) -> RequestSpec:
     """``POST /api/v1/verifications``.
 
     Per-channel options travel in a block named after the channel; the service reads
     only the block matching ``delivery_method``, so sending both is harmless. It drops
     an option it does not recognise but rejects a malformed value for one it does.
+
+    ``custom`` is top-level, not per-channel, and omitted when ``None``.
     """
     data: dict[str, Any] = {"destination": destination, "delivery_method": delivery_method}
     if sms is not None:
         data["sms"] = _channel_block(sms)
     if callout is not None:
         data["callout"] = _channel_block(callout)
+    if custom is not None:
+        data["custom"] = custom
     return RequestSpec("POST", f"{API_PREFIX}/verifications", _encode(data))
 
 
