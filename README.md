@@ -224,6 +224,20 @@ VerificationClient(auth, base_url="http://localhost:3000")  # an origin, no path
 `base_url` must be an origin. The SDK adds its own `/api/v1` prefix, and a base URL
 that already contains it produces a doubled path.
 
+## Testing
+
+The sandbox environment sends no real SMS and places no real calls. Only the reserved
+test numbers get an outcome: each gives a fixed result, such as delivered, failed or
+expired, and a delivered one has a fixed code. A verification to any other number ends
+with status `failed` and error code `dispatch_failed`.
+
+```python
+VerificationClient(auth, environment=Environment.SANDBOX)
+```
+
+The test numbers, their outcomes and the code to submit are listed in
+[Testing on sandbox](https://doc.didww.com/otp-verification/testing.html).
+
 ## Authentication
 
 Three schemes, ranked `public < basic < application`. Each application has a minimum;
@@ -424,8 +438,8 @@ A 429 raises `DidwwRateLimitedError`, and its code says which limit was hit:
 - `rate_limit_per_account`: too many requests for this account.
 - `rate_limit_public_per_account`: too many public requests for this account.
 - `volume_limit_reached`: the application reached its daily or monthly verification
-  limit for this delivery method. `Retry-After` can be long (days); surface it to the
-  user instead of retrying, or contact support to raise the limit.
+  limit. `Retry-After` can be long (days); surface it to the user instead of retrying,
+  or contact support to raise the limit.
 
 The SDK never retries a 429 automatically: wait `retry_after` seconds — `None` when the response carried no
 `Retry-After` header — then try again yourself.

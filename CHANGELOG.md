@@ -35,9 +35,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 - **New error codes for 429:** `rate_limit_per_ip`, `rate_limit_failed_auth`,
   `rate_limit_per_account`, `rate_limit_public_per_account`, and `volume_limit_reached`
-  (the application reached its daily or monthly verification limit for this delivery
-  method; `Retry-After` can be long, so surface it instead of retrying). All raise
-  `DidwwRateLimitedError`.
+  (the application reached its daily or monthly verification limit; `Retry-After` can
+  be long, so surface it instead of retrying). All raise `DidwwRateLimitedError`.
 
 - **New outcome codes:** `application_paused` and `destination_country_disabled`
   (status `denied`).
@@ -62,6 +61,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - **The `stale_dispatch` outcome code.** The service no longer sends it and reports
   these verifications as `dispatch_failed`. It stays in the vocabulary so existing
   matches keep type-checking, and will be removed in the next major version.
+
+### Docs
+
+- A Testing section on the sandbox environment, which sends nothing and gives an
+  outcome only for the reserved test numbers.
 
 ## [1.1.0] — 2026-10
 

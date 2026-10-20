@@ -127,8 +127,8 @@ class DidwwRateLimitedError(DidwwApiError):
     - ``rate_limit_per_account``: too many requests for this account.
     - ``rate_limit_public_per_account``: too many public requests for this account.
     - ``volume_limit_reached``: the application reached its daily or monthly
-      verification limit for this delivery method. ``Retry-After`` can be long (days);
-      surface it to the user instead of retrying.
+      verification limit. ``Retry-After`` can be long (days); surface it to the user
+      instead of retrying.
 
     Never retried automatically. ``retry_after`` is the wait in whole seconds from
     ``Retry-After``, or ``None`` when the header was absent or unparsable -- wait
