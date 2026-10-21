@@ -64,8 +64,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Docs
 
-- A Testing section on the sandbox environment, which sends nothing and gives an
-  outcome only for the reserved test numbers.
+- A Testing section on the sandbox environment, which sends nothing and gives a
+  predefined result only for the reserved test numbers.
 
 ## [1.1.0] — 2026-10
 

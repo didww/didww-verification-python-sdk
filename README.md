@@ -227,9 +227,9 @@ that already contains it produces a doubled path.
 ## Testing
 
 The sandbox environment sends no real SMS and places no real calls. Only the reserved
-test numbers get an outcome: each gives a fixed result, such as delivered, failed or
-expired, and a delivered one has a fixed code. A verification to any other number ends
-with status `failed` and error code `dispatch_failed`.
+test numbers give a predefined result, such as delivered, failed or expired, and a
+delivered one has a fixed code. Any other number is never delivered to, and its
+verification ends as failed.
 
 ```python
 VerificationClient(auth, environment=Environment.SANDBOX)
