@@ -7,7 +7,7 @@ the error mapping rather than adding a builder and a decoder beside the existing
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from typing import Any, cast
 
 import httpx2
@@ -15,6 +15,7 @@ import pytest
 
 from didww_verification import (
     ApplicationAuth,
+    Autofill,
     DidwwDecodingError,
     DidwwNotFoundError,
     DidwwServerError,
@@ -278,14 +279,19 @@ class TestChannelOptionsReachTheWire:
         """
         for cls, channel in ((SmsOptions, "sms"), (CalloutOptions, "callout")):
             values: dict[str, Any] = {
-                f.name: ["en-US"] if "Sequence" in str(f.type) else "v" for f in fields(cls)
+                f.name: ["en-US"] if "Sequence" in str(f.type) else "v"
+                for f in fields(cls)
+                if f.name != "app_hash"  # the one deprecated alias; it travels as autofill
             }
+            if cls is SmsOptions:
+                values["autofill"] = Autofill.app_hash("abcdefghijk")
             populated = cls(**values)
-            missing = {f.name for f in fields(cls)} - set(self._block(channel, populated))
+            expected = {f.name for f in fields(cls)} - {"app_hash"}
+            missing = expected - set(self._block(channel, populated))
             assert not missing, f"{cls.__name__} fields dropped before the wire: {sorted(missing)}"
 
     def test_unset_fields_are_omitted_not_nulled(self) -> None:
-        assert self._block("sms", SmsOptions(app_hash="abc")) == {"app_hash": "abc"}
+        assert self._block("sms", SmsOptions(languages=["en-US"])) == {"languages": ["en-US"]}
 
     def test_options_with_nothing_set_send_an_empty_block(self) -> None:
         assert self._block("sms", SmsOptions()) == {}
@@ -302,7 +308,69 @@ class TestChannelOptionsReachTheWire:
 
     def test_a_string_is_never_exploded_into_characters(self) -> None:
         """str is a Sequence. Coercing it would send ["a","b","c"]."""
-        assert self._block("sms", SmsOptions(app_hash="abc"))["app_hash"] == "abc"
+        assert self._block("sms", SmsOptions(languages="abc"))["languages"] == "abc"
+
+    def test_autofill_is_a_nested_object(self) -> None:
+        block = self._block("sms", SmsOptions(autofill=Autofill.app_hash("abcdefghijk")))
+        assert block == {"autofill": {"type": "app_hash", "value": "abcdefghijk"}}
+
+    def test_autofill_none_carries_no_value_key(self) -> None:
+        block = self._block("sms", SmsOptions(autofill=Autofill.none()))
+        assert block == {"autofill": {"type": "none"}}
+
+    def test_autofill_domain_carries_no_value_key(self) -> None:
+        block = self._block("sms", SmsOptions(autofill=Autofill.domain()))
+        assert block == {"autofill": {"type": "domain"}}
+
+    def test_template_group_travels_inside_the_channel_block(self) -> None:
+        assert self._block("sms", SmsOptions(template_group="checkout")) == {
+            "template_group": "checkout"
+        }
+        assert self._block("callout", CalloutOptions(template_group="checkout")) == {
+            "template_group": "checkout"
+        }
+
+    def test_the_deprecated_app_hash_maps_onto_autofill(self) -> None:
+        with pytest.warns(DeprecationWarning, match="autofill") as record:
+            options = SmsOptions(app_hash="abcdefghijk")
+        assert record[0].filename == __file__
+        assert self._block("sms", options) == {
+            "autofill": {"type": "app_hash", "value": "abcdefghijk"}
+        }
+
+    def test_app_hash_reads_back_as_passed_and_survives_replace(self) -> None:
+        with pytest.warns(DeprecationWarning):
+            options = SmsOptions(app_hash="abcdefghijk")
+        assert options.app_hash == "abcdefghijk"
+        with pytest.warns(DeprecationWarning):
+            replaced = replace(options, languages=["en-US"])
+        assert replaced.autofill == Autofill.app_hash("abcdefghijk")
+
+    def test_app_hash_warns_even_with_a_matching_autofill(self) -> None:
+        with pytest.warns(DeprecationWarning, match="autofill"):
+            options = SmsOptions(app_hash="abcdefghijk", autofill=Autofill.app_hash("abcdefghijk"))
+        assert options.autofill == Autofill.app_hash("abcdefghijk")
+
+    def test_app_hash_and_autofill_together_are_refused(self) -> None:
+        with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="autofill"):
+            SmsOptions(app_hash="abcdefghijk", autofill=Autofill.none())
+
+    def test_custom_is_a_top_level_field(self) -> None:
+        spec = build_start(
+            destination="+37112345678",
+            delivery_method="sms",
+            sms=SmsOptions(languages=["en-US"]),
+            custom="order-42",
+        )
+        assert spec.body is not None
+        data = cast("dict[str, Any]", json.loads(spec.body))["data"]
+        assert data["custom"] == "order-42"
+        assert "custom" not in data["sms"]
+
+    def test_custom_is_omitted_when_unset(self) -> None:
+        spec = build_start(destination="+37112345678", delivery_method="sms")
+        assert spec.body is not None
+        assert "custom" not in cast("dict[str, Any]", json.loads(spec.body))["data"]
 
     def test_both_blocks_may_travel_together(self) -> None:
         spec = build_start(

@@ -18,6 +18,7 @@ import pytest
 from didww_verification import (
     ApplicationAuth,
     AsyncVerificationClient,
+    Autofill,
     CalloutOptions,
     SmsOptions,
     VerificationClient,
@@ -31,7 +32,9 @@ CALLS: list[tuple[str, dict[str, Any]]] = [
         {
             "destination": "+371 123-456-78",
             "delivery_method": "sms",
-            "sms": SmsOptions(languages=["lv-LV", "en-US"], app_hash="abcdefghijk"),
+            "sms": SmsOptions(
+                languages=["lv-LV", "en-US"], autofill=Autofill.app_hash("abcdefghijk")
+            ),
         },
     ),
     (
@@ -41,6 +44,10 @@ CALLS: list[tuple[str, dict[str, Any]]] = [
             "delivery_method": "callout",
             "callout": CalloutOptions(languages=["de-DE"]),
         },
+    ),
+    (
+        "start_verification",
+        {"destination": "+37112345678", "delivery_method": "sms", "custom": "order-42"},
     ),
     ("get_verification", {"verification_id": "a+b/c"}),
     ("report_verification", {"verification_id": "abc", "delivery_method": "sms", "code": "123456"}),

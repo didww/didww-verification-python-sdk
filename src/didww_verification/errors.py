@@ -117,11 +117,22 @@ class DidwwValidationError(DidwwApiError):
 
 
 class DidwwRateLimitedError(DidwwApiError):
-    """429: a start too soon after a non-denied one for the same destination.
+    """429. ``errors`` says which limit was hit:
+
+    - ``destination_in_cooldown``: a verification for this destination was requested
+      too recently.
+    - ``rate_limit_per_ip``: too many requests from this IP address.
+    - ``rate_limit_failed_auth``: too many failed authentication attempts from this IP
+      address.
+    - ``rate_limit_per_account``: too many requests for this account.
+    - ``rate_limit_public_per_account``: too many public requests for this account.
+    - ``volume_limit_reached``: the application reached its daily or monthly
+      verification limit. ``Retry-After`` can be long (days); surface it to the user
+      instead of retrying.
 
     Never retried automatically. ``retry_after`` is the wait in whole seconds from
     ``Retry-After``, or ``None`` when the header was absent or unparsable -- wait
-    that long, then start again yourself.
+    that long, then try again yourself.
     """
 
     def __init__(

@@ -7,10 +7,49 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
+from warnings import warn
 
-from .vocabulary import DeliveryMethod, VerificationErrorCode, VerificationStatus
+from .vocabulary import (
+    AutofillType,
+    DeliveryMethod,
+    TemplateFallbackReason,
+    VerificationErrorCode,
+    VerificationStatus,
+)
 
-__all__ = ["CalloutInfo", "CalloutOptions", "SmsInfo", "SmsOptions", "Verification"]
+__all__ = ["Autofill", "CalloutInfo", "CalloutOptions", "SmsInfo", "SmsOptions", "Verification"]
+
+
+@dataclass(frozen=True, slots=True)
+class Autofill:
+    """How the SMS is framed for the device's autofill.
+
+    ``type`` is an open vocabulary (``AUTOFILL_TYPES``), so a type the service adds
+    later needs no new release to be read back. Build one with :meth:`app_hash`,
+    :meth:`domain` or :meth:`none`.
+    """
+
+    type: AutofillType
+    value: str | None = None
+
+    @classmethod
+    def app_hash(cls, value: str) -> Autofill:
+        """Android SMS Retriever framing for the 11-character app hash ``value``."""
+        return cls("app_hash", value)
+
+    @classmethod
+    def domain(cls) -> Autofill:
+        """Domain-bound framing for the application's configured SMS domain.
+
+        Refused with ``sms_domain_not_configured`` when the application has none. Read
+        back, ``value`` is that domain.
+        """
+        return cls("domain")
+
+    @classmethod
+    def none(cls) -> Autofill:
+        """No marker, regardless of the application default."""
+        return cls("none")
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,10 +60,34 @@ class SmsOptions:
     the canonical tag, so a bare ``pl`` passes validation and then silently falls back
     -- send ``pl-PL``. Rejecting a region-less tag here would refuse what the service
     accepts.
+
+    ``template_group`` names a template group to use instead of the application's
+    default; an unknown name is refused with ``template_group_not_found``.
+
+    ``app_hash`` is deprecated: pass ``autofill=Autofill.app_hash(...)`` instead. It is
+    folded into ``autofill`` on construction, and a conflicting ``autofill`` raises
+    ``ValueError``.
     """
 
     languages: Sequence[str] | None = None
     app_hash: str | None = None
+    autofill: Autofill | None = None
+    template_group: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.app_hash is None:
+            return
+        warn(
+            "SmsOptions(app_hash=...) is deprecated; use autofill=Autofill.app_hash(...)",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        derived = Autofill.app_hash(self.app_hash)
+        if self.autofill is None:
+            # Frozen: fold the alias in place. app_hash stays readable but never travels.
+            object.__setattr__(self, "autofill", derived)
+        elif self.autofill != derived:
+            raise ValueError("pass either autofill or the deprecated app_hash, not both")
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,10 +95,11 @@ class CalloutOptions:
     """Options for a callout start.
 
     Same tag rules as :class:`SmsOptions`, resolved against a different catalogue, so
-    one list can resolve differently per channel.
+    one list can resolve differently per channel. ``template_group`` as for SMS.
     """
 
     languages: Sequence[str] | None = None
+    template_group: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,10 +112,23 @@ class SmsInfo:
     """Seconds the SMS Retriever stays armed for. Equal to the application's
     configured code lifetime (60-600, default 300), not a fixed window."""
     app_hash: str | None
-    """Echoed back only when a hash was stored. Equality with what you sent is the
-    only confirmation it was accepted."""
+    """Deprecated, use ``autofill``. Holds ``autofill.value`` when ``autofill.type`` is
+    ``app_hash``, else ``None``."""
     code_length: int
     """The generated code's length, 4-8."""
+    template_group: str | None
+    """The template group applied, from the request or the application's default, or
+    ``None`` when none applied or the group no longer exists."""
+    template_group_used: bool
+    """True when the message came from a template in the group."""
+    template_fallback_reason: TemplateFallbackReason | None
+    """Why the group's template was not used. ``None`` when it was used or no group
+    applies at all; ``group_missing`` when the group no longer exists. An open
+    vocabulary, like ``status``."""
+    autofill: Autofill | None = None
+    """Echoed back only when a hash or domain marker was stored. Equality with what you
+    sent is the only confirmation it was accepted; for ``domain``, ``value`` is the
+    domain."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +138,15 @@ class CalloutInfo:
     language: str | None
     code_length: int
     """The generated code's length, 4-8."""
+    template_group: str | None
+    """The template group applied, from the request or the application's default, or
+    ``None`` when none applied or the group no longer exists."""
+    template_group_used: bool
+    """True when the message came from a template in the group."""
+    template_fallback_reason: TemplateFallbackReason | None
+    """Why the group's template was not used. ``None`` when it was used or no group
+    applies at all; ``group_missing`` when the group no longer exists. An open
+    vocabulary, like ``status``."""
 
 
 @dataclass(frozen=True, slots=True)

@@ -20,21 +20,30 @@ class TestTupleAndLiteralAgree:
         ("alias", "tup"),
         [
             (v.KnownDeliveryMethod, v.DELIVERY_METHODS),
+            (v.KnownAutofillType, v.AUTOFILL_TYPES),
             (v.KnownVerificationStatus, v.VERIFICATION_STATUSES),
+            (v.KnownTemplateFallbackReason, v.TEMPLATE_FALLBACK_REASONS),
             (v.KnownVerificationErrorCode, v.VERIFICATION_ERROR_CODES),
             (v.KnownApiErrorCode, v.API_ERROR_CODES),
         ],
-        ids=["delivery_method", "status", "verification_error_code", "api_error_code"],
+        ids=[
+            "delivery_method",
+            "autofill_type",
+            "status",
+            "template_fallback_reason",
+            "verification_error_code",
+            "api_error_code",
+        ],
     )
     def test_literal_members_equal_tuple_members(self, alias: object, tup: tuple[str, ...]) -> None:
         assert set(get_args(alias)) == set(tup)
 
 
 class TestShape:
-    def test_the_registry_has_28_slugs(self) -> None:
-        """19 envelope plus 9 outcome, as the service defines them."""
-        assert len(v.API_ERROR_CODES) == 28
-        assert len(v.VERIFICATION_ERROR_CODES) == 9
+    def test_the_sdk_knows_39_slugs(self) -> None:
+        """The service's 28 envelope and 11 outcome slugs (one is both), plus stale_dispatch."""
+        assert len(v.API_ERROR_CODES) == 39
+        assert len(v.VERIFICATION_ERROR_CODES) == 12
 
     def test_every_outcome_code_is_in_the_combined_set(self) -> None:
         """Not a subset of the *envelope* codes: an outcome arrives on a 200 and never
@@ -58,15 +67,23 @@ class TestShape:
 class TestPredicates:
     def test_known_values_are_recognised(self) -> None:
         assert v.is_known_delivery_method("sms")
+        assert v.is_known_autofill_type("domain")
         assert v.is_known_verification_status("pending")
         assert v.is_known_api_error_code("unauthorized")
         assert v.is_known_verification_error_code("superseded")
+        assert v.is_known_template_fallback_reason("language_missing")
+
+    def test_the_deprecated_stale_dispatch_is_still_recognised(self) -> None:
+        """The service no longer sends it, but code that matches on it keeps type-checking."""
+        assert v.is_known_verification_error_code("stale_dispatch")
 
     def test_an_unmodelled_value_is_not_recognised_but_does_not_raise(self) -> None:
         """Decoding is fail-open: a value added after this release is just a string."""
         assert not v.is_known_delivery_method("some_new_channel")
+        assert not v.is_known_autofill_type("some_new_type")
         assert not v.is_known_verification_status("some_new_status")
         assert not v.is_known_api_error_code("some_new_code")
+        assert not v.is_known_template_fallback_reason("some_new_reason")
 
 
 class TestTheVendoredContractAgrees:
@@ -90,8 +107,12 @@ class TestTheVendoredContractAgrees:
 
     def test_error_codes_match(self) -> None:
         contract = self._contract()
-        expected = contract["envelopeErrorCodes"] + contract["verificationErrorCodes"]
-        assert list(v.API_ERROR_CODES) == expected
+        envelope = contract["envelopeErrorCodes"]
+        outcome = [c for c in contract["verificationErrorCodes"] if c not in envelope]
+        assert list(v.API_ERROR_CODES) == envelope + outcome
+
+    def test_template_fallback_reasons_match(self) -> None:
+        assert list(v.TEMPLATE_FALLBACK_REASONS) == self._contract()["templateFallbackReasons"]
 
     def test_outcome_codes_match(self) -> None:
         assert list(v.VERIFICATION_ERROR_CODES) == self._contract()["verificationErrorCodes"]

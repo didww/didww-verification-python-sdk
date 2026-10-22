@@ -8,6 +8,7 @@ from decimal import Decimal
 import pytest
 
 from didww_verification import (
+    Autofill,
     DidwwApiError,
     DidwwBalanceInsufficientError,
     DidwwDecodingError,
@@ -20,6 +21,12 @@ from didww_verification import (
 )
 from didww_verification._responses import HttpOutcome, TransportFailure, decode_verification
 from tests.conftest import verification_payload
+
+NO_TEMPLATE_GROUP = {
+    "template_group": None,
+    "template_group_used": False,
+    "template_fallback_reason": None,
+}
 
 
 def ok(**overrides: object) -> HttpOutcome:
@@ -35,6 +42,41 @@ class TestSuccess:
         assert v.sms is not None and v.sms.language == "en-US"
         assert v.callout is None
         assert not v.is_finished
+
+    def test_sms_autofill_is_decoded_and_app_hash_derived(self) -> None:
+        sms = {
+            **verification_payload()["sms"],
+            "autofill": {"type": "app_hash", "value": "abcdefghijk"},
+        }
+        v = decode_verification(ok(sms=sms))
+        assert v.sms is not None
+        assert v.sms.autofill == Autofill.app_hash("abcdefghijk")
+        assert v.sms.app_hash == "abcdefghijk"
+
+    def test_sms_autofill_is_absent_when_no_hash_was_stored(self) -> None:
+        v = decode_verification(ok())
+        assert v.sms is not None
+        assert v.sms.autofill is None
+        assert v.sms.app_hash is None
+
+    def test_sms_autofill_domain_carries_the_domain(self) -> None:
+        sms = {
+            **verification_payload()["sms"],
+            "autofill": {"type": "domain", "value": "example.com"},
+        }
+        v = decode_verification(ok(sms=sms))
+        assert v.sms is not None
+        assert v.sms.autofill == Autofill("domain", "example.com")
+        assert v.sms.app_hash is None
+
+    @pytest.mark.parametrize(
+        "autofill",
+        ["app_hash", {"value": "x"}, {"type": 1}, {"type": "app_hash", "value": 5}],
+    )
+    def test_sms_autofill_rejects_a_malformed_shape(self, autofill: object) -> None:
+        sms = {**verification_payload()["sms"], "autofill": autofill}
+        with pytest.raises(DidwwDecodingError):
+            decode_verification(ok(sms=sms))
 
     def test_fee_is_a_decimal_not_a_float(self) -> None:
         """The wire sends a decimal string; money must not round."""
@@ -74,7 +116,8 @@ class TestSuccess:
 
     def test_the_sms_block_is_absent_for_a_callout(self) -> None:
         payload = verification_payload(
-            delivery_method="callout", callout={"language": "de-DE", "code_length": 6}
+            delivery_method="callout",
+            callout={"language": "de-DE", "code_length": 6, **NO_TEMPLATE_GROUP},
         )
         del payload["sms"]
         v = decode_verification(HttpOutcome(200, json.dumps({"data": payload}).encode()))
@@ -92,9 +135,55 @@ class TestSuccess:
         with pytest.raises(DidwwDecodingError):
             decode_verification(ok(sms=sms))
 
+    def test_no_template_group_decodes_as_none_and_unused(self) -> None:
+        v = decode_verification(ok())
+        assert v.sms is not None
+        assert v.sms.template_group is None
+        assert v.sms.template_group_used is False
+        assert v.sms.template_fallback_reason is None
+
+    def test_a_template_group_fallback_is_decoded(self) -> None:
+        sms = {
+            **verification_payload()["sms"],
+            "template_group": "checkout",
+            "template_fallback_reason": "language_missing",
+        }
+        v = decode_verification(ok(sms=sms))
+        assert v.sms is not None
+        assert (v.sms.template_group, v.sms.template_group_used) == ("checkout", False)
+        assert v.sms.template_fallback_reason == "language_missing"
+
+    def test_an_unmodelled_fallback_reason_decodes_rather_than_raising(self) -> None:
+        sms = {**verification_payload()["sms"], "template_fallback_reason": "some_new_reason"}
+        v = decode_verification(ok(sms=sms))
+        assert v.sms is not None
+        assert v.sms.template_fallback_reason == "some_new_reason"
+
+    @pytest.mark.parametrize("used", [None, 1, "true"])
+    def test_template_group_used_must_be_a_boolean(self, used: object) -> None:
+        sms = {**verification_payload()["sms"], "template_group_used": used}
+        with pytest.raises(DidwwDecodingError):
+            decode_verification(ok(sms=sms))
+
+    def test_the_callout_block_carries_the_template_group_fields(self) -> None:
+        callout = {
+            "language": "de-DE",
+            "code_length": 6,
+            "template_group": "checkout",
+            "template_group_used": True,
+            "template_fallback_reason": None,
+        }
+        payload = verification_payload(delivery_method="callout", callout=callout)
+        del payload["sms"]
+        v = decode_verification(HttpOutcome(200, json.dumps({"data": payload}).encode()))
+        assert v.callout is not None
+        assert (v.callout.template_group, v.callout.template_group_used) == ("checkout", True)
+        assert v.callout.template_fallback_reason is None
+
     def test_callout_code_length_is_readable_when_present(self) -> None:
         payload = verification_payload(
-            delivery_method="callout", callout={"language": "de-DE", "code_length": 4}
+            delivery_method="callout",
+            callout={"language": "de-DE", "code_length": 4, **NO_TEMPLATE_GROUP},
         )
         del payload["sms"]
         v = decode_verification(HttpOutcome(200, json.dumps({"data": payload}).encode()))

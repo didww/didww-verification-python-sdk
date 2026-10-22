@@ -34,6 +34,9 @@ def verification_payload(**overrides: Any) -> dict[str, Any]:
             "language": "en-US",
             "interception_timeout": 300,
             "code_length": 6,
+            "template_group": None,
+            "template_group_used": False,
+            "template_fallback_reason": None,
         },
     }
     data.update(overrides)

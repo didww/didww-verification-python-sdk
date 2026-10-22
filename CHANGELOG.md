@@ -5,6 +5,68 @@ Notable changes to the DIDWW Verification SDK for Python.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-10
+
+### Added
+
+- **`custom` on `start_verification`** (sync and async). Free text of up to 4096
+  characters, delivered unchanged to your callback server as `data.custom`. It is not
+  returned in any response. A longer value is refused with the new `custom_too_long`
+  error code.
+
+- **`SmsOptions.autofill`**, built with `Autofill.app_hash(value)`, `Autofill.domain()`
+  or `Autofill.none()`. `SmsInfo.autofill` reads back the stored marker, `app_hash` or
+  `domain`, whose `value` is the hash or the domain. `Autofill.type` is an open
+  vocabulary (`AUTOFILL_TYPES`, `is_known_autofill_type`). New error codes
+  `autofill_invalid` and `sms_domain_not_configured`.
+
+- **`template_group` on `SmsOptions` and `CalloutOptions`**, to pick a template group
+  instead of the application's default. `SmsInfo` and `CalloutInfo` gain
+  `template_group`, `template_group_used` and `template_fallback_reason`, the last an
+  open vocabulary (`TEMPLATE_FALLBACK_REASONS`, `is_known_template_fallback_reason`).
+  An unknown group is refused with the new `template_group_not_found` error code.
+
+- **`x-signature-previous` support in `CallbackVerifier`.** While an application secret is
+  being rotated, callbacks also carry a signature made with the previous secret. The
+  verifier takes it as the optional `previous_signature` argument to `check()` and
+  `is_valid()` and accepts a callback when either signature matches the configured secret.
+  The FastAPI and Django adapters pass the header through. Without the header, behaviour
+  is unchanged.
+
+- **New error codes for 429:** `rate_limit_per_ip`, `rate_limit_failed_auth`,
+  `rate_limit_per_account`, `rate_limit_public_per_account`, and `volume_limit_reached`
+  (the application reached its daily or monthly verification limit; `Retry-After` can
+  be long, so surface it instead of retrying). All raise `DidwwRateLimitedError`.
+
+- **New outcome codes:** `application_paused` and `destination_country_disabled`
+  (status `denied`).
+
+### Changed
+
+- **An unsupported destination is no longer a 422.** A destination with no country, not
+  supported for the delivery method, or in a blocked range now returns a 201
+  verification with status `failed` and `error_code`
+  `destination_not_supported_for_channel`. Code that handled the 422 must read the
+  outcome instead. The code stays in the envelope vocabulary for compatibility.
+
+- `SmsInfo` and `CalloutInfo` have three new required fields, so code that constructs
+  them directly, for example in tests, must pass them.
+
+### Deprecated
+
+- **`SmsOptions(app_hash=...)` and `SmsInfo.app_hash`.** Use `autofill`. The alias is
+  sent as `autofill=Autofill.app_hash(...)` and emits a `DeprecationWarning`; passing it
+  with a different `autofill` raises `ValueError`.
+
+- **The `stale_dispatch` outcome code.** The service no longer sends it and reports
+  these verifications as `dispatch_failed`. It stays in the vocabulary so existing
+  matches keep type-checking, and will be removed in the next major version.
+
+### Docs
+
+- A Testing section on the sandbox environment, which sends nothing and gives a
+  predefined result only for the reserved test numbers.
+
 ## [1.1.0] — 2026-10
 
 ### Added
