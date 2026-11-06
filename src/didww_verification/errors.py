@@ -129,6 +129,8 @@ class DidwwRateLimitedError(DidwwApiError):
     - ``volume_limit_reached``: the application reached its daily or monthly
       verification limit. ``Retry-After`` can be long (days); surface it to the user
       instead of retrying.
+    - ``destination_prefix_rate_limited``: too many verifications to this number range;
+      try again later. Wait ``Retry-After``.
 
     Never retried automatically. ``retry_after`` is the wait in whole seconds from
     ``Retry-After``, or ``None`` when the header was absent or unparsable -- wait

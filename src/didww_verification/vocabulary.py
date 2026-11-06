@@ -114,6 +114,7 @@ API_ERROR_CODES: Final = (
     "rate_limit_per_account",
     "rate_limit_public_per_account",
     "volume_limit_reached",
+    "destination_prefix_rate_limited",
     # Kept as an envelope code for compatibility, so listed once, above.
     *(c for c in VERIFICATION_ERROR_CODES if c != "destination_not_supported_for_channel"),
 )
@@ -171,6 +172,7 @@ KnownApiErrorCode: TypeAlias = Literal[
     "rate_limit_per_account",
     "rate_limit_public_per_account",
     "volume_limit_reached",
+    "destination_prefix_rate_limited",
     "dispatch_failed",
     "expired",
     "too_many_attempts",

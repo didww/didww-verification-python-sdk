@@ -218,6 +218,16 @@ class TestErrors:
         assert excinfo.value.retry_after == 17
         assert excinfo.value.has_code("destination_in_cooldown")
 
+    def test_a_429_carries_the_prefix_rate_limit_slug_and_retry_after(self) -> None:
+        body = (
+            b'{"errors":[{"code":"destination_prefix_rate_limited",'
+            b'"detail":"too many verifications to this number range; try again later"}]}'
+        )
+        with pytest.raises(DidwwRateLimitedError) as excinfo:
+            decode_verification(HttpOutcome(429, body, {"retry-after": "120"}))
+        assert excinfo.value.retry_after == 120
+        assert excinfo.value.has_code("destination_prefix_rate_limited")
+
     @pytest.mark.parametrize(
         "headers",
         [
