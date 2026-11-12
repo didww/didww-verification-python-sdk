@@ -40,9 +40,9 @@ class TestTupleAndLiteralAgree:
 
 
 class TestShape:
-    def test_the_sdk_knows_40_slugs(self) -> None:
-        """The service's 29 envelope and 11 outcome slugs (one is both), plus stale_dispatch."""
-        assert len(v.API_ERROR_CODES) == 40
+    def test_the_sdk_knows_41_slugs(self) -> None:
+        """The service's 30 envelope and 11 outcome slugs (one is both), plus stale_dispatch."""
+        assert len(v.API_ERROR_CODES) == 41
         assert len(v.VERIFICATION_ERROR_CODES) == 12
 
     def test_every_outcome_code_is_in_the_combined_set(self) -> None:

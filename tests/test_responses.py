@@ -228,6 +228,15 @@ class TestErrors:
         assert excinfo.value.retry_after == 120
         assert excinfo.value.has_code("destination_prefix_rate_limited")
 
+    def test_a_422_carries_the_channel_blocked_slug(self) -> None:
+        body = (
+            b'{"errors":[{"code":"channel_blocked",'
+            b'"detail":"delivery method is blocked for this account"}]}'
+        )
+        with pytest.raises(DidwwValidationError) as excinfo:
+            decode_verification(HttpOutcome(422, body))
+        assert excinfo.value.has_code("channel_blocked")
+
     @pytest.mark.parametrize(
         "headers",
         [

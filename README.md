@@ -403,6 +403,9 @@ validation failure returns one per field — so use `codes` and `has_code`, not
 `errors[0]`. `code` is a stable slug to switch on; `detail` is fixed prose to display,
 never to parse.
 
+A 422 with `channel_blocked` means the account can't use the requested delivery method;
+no verification is created. Contact DIDWW support.
+
 Some starts are refused as an outcome rather than an error: a 201 whose `status` is
 `denied` or `failed`, with `error_code` set to `application_paused`,
 `destination_country_disabled` or `destination_not_supported_for_channel`.

@@ -46,6 +46,7 @@
     "unauthorized",
     "balance_insufficient",
     "validation_failed",
+    "channel_blocked",
     "internal_error",
     "destination_in_cooldown",
     "rate_limit_per_ip",
