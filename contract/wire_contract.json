@@ -46,13 +46,15 @@
     "unauthorized",
     "balance_insufficient",
     "validation_failed",
+    "channel_blocked",
     "internal_error",
     "destination_in_cooldown",
     "rate_limit_per_ip",
     "rate_limit_failed_auth",
     "rate_limit_per_account",
     "rate_limit_public_per_account",
-    "volume_limit_reached"
+    "volume_limit_reached",
+    "destination_prefix_rate_limited"
   ],
   "verificationErrorCodes": [
     "dispatch_failed",

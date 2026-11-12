@@ -5,6 +5,17 @@ Notable changes to the DIDWW Verification SDK for Python.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — Unreleased
+
+### Added
+
+- **`destination_prefix_rate_limited`** error code. A start can be answered with a 429
+  carrying it when there are too many verifications to a number range; wait
+  `Retry-After` and try again later. It raises `DidwwRateLimitedError` and is never
+  retried automatically.
+- **`channel_blocked`** error code. A start can be refused with a 422 carrying it when the
+  account can't use the requested delivery method. Contact DIDWW support.
+
 ## [1.2.0] — 2026-10
 
 ### Added
